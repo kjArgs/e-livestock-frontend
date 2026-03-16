@@ -7,6 +7,43 @@ import DashboardShell from "../../components/DashboardShell";
 import StatCard from "../../components/StatCard";
 import { agriPalette } from "../../constants/agriTheme";
 
+const API_URL =
+  "https://e-livestock.tulongkabataanbicol.com/eLiveStockAPI/API/get_user_form.php";
+
+function isFormExpired(expirationDate) {
+  if (!expirationDate) {
+    return true;
+  }
+
+  return new Date(expirationDate) < new Date();
+}
+
+function normalizeFullName(value) {
+  return String(value || "")
+    .trim()
+    .replace(/\s+/g, " ")
+    .toLowerCase();
+}
+
+async function requestOwnerForms(session) {
+  const payload = {
+    first_name: session.firstName || "",
+    last_name: session.lastName || "",
+  };
+
+  if (session.accountId) {
+    payload.account_id = Number.parseInt(session.accountId, 10);
+  }
+
+  const response = await fetch(API_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+
+  return response.json();
+}
+
 export default function DashboardScreen() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
@@ -17,34 +54,57 @@ export default function DashboardScreen() {
     valid: 0,
   });
 
-  async function fetchAnalytics() {
-    setLoading(true);
-    try {
-      const response = await fetch(
-        "https://e-livestock.tulongkabataanbicol.com/eLiveStockAPI/API/get_owner_analytics_summary.php"
-      );
-      const data = await response.json();
-
-      setAnalytics({
-        total: data.total,
-        expired: data.expired,
-        valid: data.valid,
-      });
-    } catch (error) {
-      console.log(error);
-      Alert.alert("Error", "Failed to load analytics.");
-    }
-    setLoading(false);
-  }
-
   useEffect(() => {
-    AsyncStorage.getItem("first_name").then((storedName) => {
-      if (storedName) {
-        setFirstName(storedName);
-      }
-    });
+    const loadOwnerDashboard = async () => {
+      setLoading(true);
 
-    fetchAnalytics();
+      try {
+        const [storedFirstName, storedLastName, storedAccountId] =
+          await Promise.all([
+            AsyncStorage.getItem("first_name"),
+            AsyncStorage.getItem("last_name"),
+            AsyncStorage.getItem("account_id"),
+          ]);
+
+        if (storedFirstName) {
+          setFirstName(storedFirstName);
+        }
+
+        const data = await requestOwnerForms({
+          firstName: storedFirstName,
+          lastName: storedLastName,
+          accountId: storedAccountId,
+        });
+
+        if (data.status === "success") {
+          const fullName = normalizeFullName(
+            `${storedFirstName || ""} ${storedLastName || ""}`
+          );
+          const forms = (Array.isArray(data.forms) ? data.forms : []).filter(
+            (form) =>
+              !fullName || normalizeFullName(form.owner_name) === fullName
+          );
+          const expired = forms.filter((form) =>
+            isFormExpired(form.qr_expiration)
+          ).length;
+
+          setAnalytics({
+            total: forms.length,
+            expired,
+            valid: forms.length - expired,
+          });
+        } else {
+          setAnalytics({ total: 0, expired: 0, valid: 0 });
+        }
+      } catch (error) {
+        console.log(error);
+        Alert.alert("Error", "Failed to load analytics.");
+      }
+
+      setLoading(false);
+    };
+
+    loadOwnerDashboard();
   }, []);
 
   const handleLogout = async () => {
@@ -66,18 +126,18 @@ export default function DashboardScreen() {
       title={
         firstName ? `Welcome back, ${firstName}` : "Welcome back to e-Livestock"
       }
-      subtitle="Track active permits, monitor expiring forms, and move from your stockyard to your next inspection schedule without the clutter."
+      subtitle="Track only your own livestock forms, monitor expiring permits, and move from the stockyard to your next schedule without sorting through other users' records."
       summary={
         loading
           ? "Refreshing your livestock permit overview..."
-          : `${analytics.valid} active forms are ready for your next transaction.`
+          : `${analytics.valid} of your forms are still active for inspection and transport.`
       }
     >
       <View style={styles.statsGrid}>
         <StatCard
-          label="Total forms"
+          label="My forms"
           value={analytics.total}
-          caption="Open your stockyard records and livestock QR permits."
+          caption="Only records filed under your account are counted here."
           icon="file-document-multiple-outline"
           accent="meadow"
           loading={loading}
@@ -86,7 +146,7 @@ export default function DashboardScreen() {
         <StatCard
           label="Expired"
           value={analytics.expired}
-          caption="Forms that need renewal before the next movement."
+          caption="Permits that already need renewal before the next movement."
           icon="calendar-remove-outline"
           accent="clay"
           loading={loading}
@@ -94,7 +154,7 @@ export default function DashboardScreen() {
         <StatCard
           label="Valid forms"
           value={analytics.valid}
-          caption="Records currently usable for inspection and transport."
+          caption="Your records that are still usable for inspection and transport."
           icon="shield-check-outline"
           accent="wheat"
           loading={loading}
@@ -103,27 +163,35 @@ export default function DashboardScreen() {
 
       <View style={styles.sectionCard}>
         <Text style={styles.sectionEyebrow}>Quick actions</Text>
-        <Text style={styles.sectionTitle}>Move through your livestock tasks faster</Text>
+        <Text style={styles.sectionTitle}>
+          Move through your livestock tasks faster
+        </Text>
         <Text style={styles.sectionCopy}>
-          Jump into the stockyard, check your appointment queue, or safely end
-          your session. These buttons now use a more modern, agriculture-led
-          layout for faster scanning.
+          Jump into your stockyard, review your appointment queue, or end the
+          session with the same agriculture-themed workflow.
         </Text>
 
         <View style={styles.actionStack}>
           <AgriButton
             title="Open Stockyard"
-            subtitle="Review livestock permits and QR details"
+            subtitle="Review your livestock permits and QR details"
             icon="barn"
             variant="primary"
             onPress={() => router.push("/stockyard")}
           />
           <AgriButton
             title="Check schedules"
-            subtitle="See upcoming inspections and appointment slots"
+            subtitle="See your upcoming inspections and appointment slots"
             icon="calendar-month-outline"
             variant="sky"
             onPress={() => router.push("/checkSchedule")}
+          />
+          <AgriButton
+            title="Settings"
+            subtitle="Update your owner profile details"
+            icon="cog-outline"
+            variant="secondary"
+            onPress={() => router.push("/settings")}
           />
           <AgriButton
             title="Logout"

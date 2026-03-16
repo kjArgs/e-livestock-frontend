@@ -1,4 +1,5 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
 import {
   Modal,
@@ -45,6 +46,13 @@ export default function FormDetailsModal({ visible, onClose, form }) {
       onRequestClose={onClose}
     >
       <View style={styles.overlay}>
+        <BlurView
+          intensity={34}
+          tint="dark"
+          experimentalBlurMethod="dimezisBlurView"
+          style={styles.blurBackdrop}
+        />
+        <View style={styles.overlayTint} />
         <View
           style={[
             styles.modalContainer,
@@ -171,10 +179,16 @@ export default function FormDetailsModal({ visible, onClose, form }) {
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: "rgba(15, 22, 18, 0.58)",
     justifyContent: "center",
     alignItems: "center",
     padding: 12,
+  },
+  blurBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  overlayTint: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(15, 22, 18, 0.42)",
   },
   modalContainer: {
     backgroundColor: agriPalette.cream,

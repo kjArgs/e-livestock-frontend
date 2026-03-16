@@ -509,6 +509,13 @@ const InspectorDashboard = () => {
             variant="secondary"
             onPress={() => router.push("/createLivestockForm")}
           />
+          <AgriButton
+            title="Settings"
+            subtitle="Update your livestock inspector profile"
+            icon="cog-outline"
+            variant="sky"
+            onPress={() => router.push("/settings")}
+          />
           <LogoutButton />
         </View>
       </View>

@@ -1,13 +1,11 @@
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useState } from "react";
-import { Alert, View } from "react-native";
-import {
-  ActivityIndicator,
-  Button,
-  Card,
-  Text,
-  TextInput,
-} from "react-native-paper";
+import { Alert, StyleSheet, Text, View } from "react-native";
+import { TextInput } from "react-native-paper";
+import AgriButton from "../../components/AgriButton";
+import AuthRecoveryShell from "../../components/AuthRecoveryShell";
+import { agriPalette } from "../../constants/agriTheme";
 
 const API_SEND_OTP =
   "https://e-livestock.tulongkabataanbicol.com/eLiveStockAPI/API/send_otp.php";
@@ -18,90 +16,206 @@ export default function SendOtp() {
   const [loading, setLoading] = useState(false);
 
   const sendOTP = async () => {
-    if (!email) return Alert.alert("Error", "Enter your email.");
+    const trimmedEmail = email.trim().toLowerCase();
+
+    if (!trimmedEmail) {
+      Alert.alert("Error", "Enter the email linked to your account.");
+      return;
+    }
+
+    if (!trimmedEmail.includes("@")) {
+      Alert.alert("Invalid email", "Enter a valid email address.");
+      return;
+    }
 
     setLoading(true);
+
     try {
-      const res = await fetch(API_SEND_OTP, {
+      const response = await fetch(API_SEND_OTP, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, purpose: "reset" }),
+        body: JSON.stringify({ email: trimmedEmail, purpose: "reset" }),
       });
-      const result = await res.json();
-      setLoading(false);
+      const rawText = await response.text();
+      const result = rawText ? JSON.parse(rawText) : {};
 
       if (result.success) {
-        Alert.alert("Success", "OTP sent to your email!");
+        Alert.alert("Success", "OTP sent to your email.");
         router.push({
           pathname: "/verifyOtp",
-          params: { email, purpose: "reset" },
+          params: { email: trimmedEmail, purpose: "reset" },
         });
       } else {
-        Alert.alert("Error", result.message);
+        Alert.alert("Error", result.message || "Failed to send OTP.");
       }
-    } catch (err) {
+    } catch (error) {
+      console.error(error);
+      Alert.alert("Error", error.message || "Unable to send OTP.");
+    } finally {
       setLoading(false);
-      Alert.alert("Error", err.message);
     }
   };
 
   return (
-    <View
-      style={{
-        flex: 1,
-        justifyContent: "center",
-        padding: 20,
-        backgroundColor: "#F1F8E9",
-      }}
+    <AuthRecoveryShell
+      eyebrow="Forgot password"
+      title="Request your recovery code"
+      subtitle="Enter the email connected to your e-Livestock account and we will send a one-time password so you can continue the reset flow securely."
+      step={1}
     >
-      <Card
-        style={{
-          padding: 25,
-          borderRadius: 20,
-          backgroundColor: "#fff",
-          elevation: 3,
+      <Text style={styles.sectionEyebrow}>Email recovery</Text>
+      <Text style={styles.sectionTitle}>Send OTP to your inbox</Text>
+      <Text style={styles.sectionCopy}>
+        Use the same email address you registered with. Once the code arrives,
+        you can move to the OTP verification step right away.
+      </Text>
+
+      <View style={styles.infoCard}>
+        <View style={styles.infoIconWrap}>
+          <MaterialCommunityIcons
+            name="email-check-outline"
+            size={20}
+            color={agriPalette.fieldDeep}
+          />
+        </View>
+        <View style={styles.infoTextWrap}>
+          <Text style={styles.infoTitle}>Recovery note</Text>
+          <Text style={styles.infoCopy}>
+            The reset code is delivered only to the account email on file.
+          </Text>
+        </View>
+      </View>
+
+      <TextInput
+        label="Email address"
+        mode="outlined"
+        value={email}
+        onChangeText={setEmail}
+        autoCapitalize="none"
+        keyboardType="email-address"
+        autoComplete="email"
+        left={<TextInput.Icon icon="email-outline" />}
+        style={styles.input}
+        outlineColor={agriPalette.border}
+        activeOutlineColor={agriPalette.field}
+        contentStyle={styles.inputContent}
+        theme={{
+          colors: {
+            background: agriPalette.surface,
+          },
         }}
-      >
-        <Text
-          variant="headlineSmall"
-          style={{ marginBottom: 10, color: "#2E7D32", fontWeight: "bold" }}
-        >
-          Send OTP
-        </Text>
+      />
 
-        <TextInput
-          label="Email"
-          mode="outlined"
-          value={email}
-          onChangeText={setEmail}
-          left={<TextInput.Icon icon="email" />}
-          style={{ marginBottom: 20 }}
-          outlineColor="#A5D6A7"
-          activeOutlineColor="#2E7D32"
-          theme={{
-            colors: {
-              text: "#ffffffff",
-              primary: "#2E7D32",
-              placeholder: "#ffffffff",
-              background: "#ffffffff",
-            },
-          }}
+      <View style={styles.tipBox}>
+        <MaterialCommunityIcons
+          name="shield-lock-outline"
+          size={18}
+          color={agriPalette.field}
         />
+        <Text style={styles.tipText}>
+          Check both your inbox and spam folder after sending the code.
+        </Text>
+      </View>
 
-        {loading ? (
-          <ActivityIndicator color="#2E7D32" />
-        ) : (
-          <Button
-            mode="contained"
-            onPress={sendOTP}
-            buttonColor="#388E3C"
-            textColor="#000000ff"
-            style={{ borderRadius: 10 }}
-          >
-            Send OTP
-          </Button>
-        )}
-      </Card>
-    </View>
+      <View style={styles.actionStack}>
+        <AgriButton
+          title="Send OTP"
+          subtitle="Generate a recovery code for this email"
+          icon="send-outline"
+          loading={loading}
+          disabled={loading}
+          onPress={sendOTP}
+        />
+        <AgriButton
+          title="Back to login"
+          subtitle="Return to the sign-in screen"
+          icon="arrow-left"
+          variant="secondary"
+          trailingIcon={false}
+          disabled={loading}
+          onPress={() => router.replace("/")}
+        />
+      </View>
+    </AuthRecoveryShell>
   );
 }
+
+const styles = StyleSheet.create({
+  sectionEyebrow: {
+    color: agriPalette.field,
+    fontSize: 12,
+    fontWeight: "800",
+    textTransform: "uppercase",
+    letterSpacing: 1.2,
+  },
+  sectionTitle: {
+    marginTop: 8,
+    color: agriPalette.ink,
+    fontSize: 28,
+    fontWeight: "900",
+  },
+  sectionCopy: {
+    marginTop: 10,
+    color: agriPalette.inkSoft,
+    fontSize: 15,
+    lineHeight: 22,
+  },
+  infoCard: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    marginTop: 18,
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+    borderRadius: 22,
+    backgroundColor: agriPalette.cream,
+    borderWidth: 1,
+    borderColor: agriPalette.border,
+  },
+  infoIconWrap: {
+    width: 38,
+    height: 38,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#E7F2EA",
+    marginRight: 12,
+  },
+  infoTextWrap: {
+    flex: 1,
+  },
+  infoTitle: {
+    color: agriPalette.fieldDeep,
+    fontSize: 14,
+    fontWeight: "800",
+  },
+  infoCopy: {
+    marginTop: 4,
+    color: agriPalette.inkSoft,
+    fontSize: 13,
+    lineHeight: 19,
+  },
+  input: {
+    marginTop: 18,
+    backgroundColor: agriPalette.surface,
+  },
+  inputContent: {
+    fontSize: 15,
+  },
+  tipBox: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 10,
+    marginTop: 14,
+    paddingHorizontal: 12,
+  },
+  tipText: {
+    flex: 1,
+    color: agriPalette.inkSoft,
+    fontSize: 13,
+    lineHeight: 19,
+  },
+  actionStack: {
+    gap: 12,
+    marginTop: 20,
+  },
+});

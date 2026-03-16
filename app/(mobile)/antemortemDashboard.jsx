@@ -133,6 +133,13 @@ export default function DashboardScreen() {
             onPress={() => router.push("/antemortemScanQRcode")}
           />
           <AgriButton
+            title="Settings"
+            subtitle="Update your antemortem inspector profile"
+            icon="cog-outline"
+            variant="sky"
+            onPress={() => router.push("/settings")}
+          />
+          <AgriButton
             title="Logout"
             subtitle="Close this antemortem session securely"
             icon="logout"

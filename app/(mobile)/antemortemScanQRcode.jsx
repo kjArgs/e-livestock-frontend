@@ -1,4 +1,5 @@
 import { CameraView, useCameraPermissions } from "expo-camera";
+import { BlurView } from "expo-blur";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useState } from "react";
 import {
@@ -154,6 +155,13 @@ export default function AntemortemScanQRcode() {
 
       {scanned && !verifying && result && (
         <View style={styles.modalOverlay}>
+          <BlurView
+            intensity={36}
+            tint="dark"
+            experimentalBlurMethod="dimezisBlurView"
+            style={styles.blurBackdrop}
+          />
+          <View style={styles.modalTint} />
           <ScrollView contentContainerStyle={styles.modalScroll}>
             <View style={styles.modalCard}>
               {lastScannedData && (
@@ -207,10 +215,16 @@ const styles = StyleSheet.create({
 
   modalOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(0,0,0,0.6)",
     justifyContent: "center",
     alignItems: "center",
     padding: 16,
+  },
+  blurBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  modalTint: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(0,0,0,0.32)",
   },
 
   modalScroll: { flexGrow: 1, justifyContent: "center" },

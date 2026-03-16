@@ -1,71 +1,223 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import {
+  ActivityIndicator,
   Alert,
   RefreshControl,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
+  useWindowDimensions,
   View,
 } from "react-native";
-import { Button, Card } from "react-native-paper";
 import QRCode from "react-native-qrcode-svg";
+import AgriButton from "../../components/AgriButton";
+import DashboardShell from "../../components/DashboardShell";
 import FormDetailsModal from "../../components/FormDetailsModal";
+import StatCard from "../../components/StatCard";
+import { agriPalette } from "../../constants/agriTheme";
+
+const API_URL =
+  "https://e-livestock.tulongkabataanbicol.com/eLiveStockAPI/API/get_user_form.php";
+
+const filterOptions = ["All", "Active QR", "Expired QR"];
+
+function normalizeFullName(value) {
+  return String(value || "")
+    .trim()
+    .replace(/\s+/g, " ")
+    .toLowerCase();
+}
+
+async function requestForms(session = null) {
+  const accountId =
+    session?.accountId ?? (await AsyncStorage.getItem("account_id"));
+  const firstNameValue =
+    session?.firstName ?? (await AsyncStorage.getItem("first_name"));
+  const lastNameValue =
+    session?.lastName ?? (await AsyncStorage.getItem("last_name"));
+
+  const payload = {
+    first_name: firstNameValue || "",
+    last_name: lastNameValue || "",
+  };
+
+  if (accountId) {
+    payload.account_id = Number.parseInt(accountId, 10);
+  }
+
+  const response = await fetch(API_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+
+  return response.json();
+}
+
+function isQRExpired(expirationDate, isExpiredFlag) {
+  if (typeof isExpiredFlag === "boolean") {
+    return isExpiredFlag;
+  }
+
+  if (!expirationDate) {
+    return true;
+  }
+
+  return new Date(expirationDate) <= new Date();
+}
+
+function getDaysRemaining(expirationDate) {
+  if (!expirationDate) {
+    return "No expiry recorded";
+  }
+
+  const today = new Date();
+  const expiry = new Date(expirationDate);
+  const diff = Math.ceil((expiry - today) / (1000 * 60 * 60 * 24));
+
+  if (diff < 0) {
+    return `Expired ${Math.abs(diff)} day${Math.abs(diff) === 1 ? "" : "s"} ago`;
+  }
+
+  if (diff === 0) {
+    return "Expires today";
+  }
+
+  return `${diff} day${diff === 1 ? "" : "s"} left`;
+}
+
+function formatDateLabel(dateValue) {
+  if (!dateValue) {
+    return "Date not recorded";
+  }
+
+  const parsed = new Date(`${dateValue}T00:00:00`);
+
+  if (Number.isNaN(parsed.getTime())) {
+    return dateValue;
+  }
+
+  return parsed.toLocaleDateString(undefined, {
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  });
+}
 
 export default function Stockyard() {
+  const router = useRouter();
+  const { width } = useWindowDimensions();
+  const isCompact = width < 430;
   const [forms, setForms] = useState([]);
   const [filteredForms, setFilteredForms] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState("All");
   const [refreshing, setRefreshing] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedForm, setSelectedForm] = useState(null);
-  const router = useRouter();
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
 
   useEffect(() => {
-    fetchForms();
-  }, []);
-  useEffect(() => {
-    if (searchQuery.trim() === "") {
-      setFilteredForms(forms);
-    } else {
-      const query = searchQuery.toLowerCase();
-      setFilteredForms(
-        forms.filter(
-          (f) =>
-            f.owner_name.toLowerCase().includes(query) ||
-            f.animal_unique_identifier.toLowerCase().includes(query) ||
-            f.form_id.toString().includes(query)
-        )
-      );
-    }
-  }, [searchQuery, forms]);
+    const loadSessionAndForms = async () => {
+      try {
+        const [storedFirstName, accountId, lastNameValue] =
+          await Promise.all([
+            AsyncStorage.getItem("first_name"),
+            AsyncStorage.getItem("account_id"),
+            AsyncStorage.getItem("last_name"),
+          ]);
 
-  const fetchForms = async () => {
-    try {
-      const first_name = await AsyncStorage.getItem("first_name");
-      const last_name = await AsyncStorage.getItem("last_name");
-      if (!first_name || !last_name) return;
-
-      const res = await fetch(
-        "https://e-livestock.tulongkabataanbicol.com/eLiveStockAPI/API/get_user_form.php",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ first_name, last_name }),
+        if (storedFirstName) {
+          setFirstName(storedFirstName);
         }
+        if (lastNameValue) {
+          setLastName(lastNameValue);
+        }
+
+        const data = await requestForms({
+          accountId,
+          firstName: storedFirstName,
+          lastName: lastNameValue,
+        });
+
+        if (data.status === "success") {
+          const fullName = normalizeFullName(
+            `${storedFirstName || ""} ${lastNameValue || ""}`
+          );
+          const nextForms = (data.forms || []).filter(
+            (form) => !fullName || normalizeFullName(form.owner_name) === fullName
+          );
+          setForms(nextForms);
+        } else {
+          setForms([]);
+        }
+      } catch (err) {
+        console.error(err);
+        Alert.alert("Error", "Failed to load your stockyard records.");
+        setLoading(false);
+        setRefreshing(false);
+      }
+    };
+
+    loadSessionAndForms();
+  }, []);
+
+  useEffect(() => {
+    const query = searchQuery.trim().toLowerCase();
+
+    const nextForms = forms.filter((form) => {
+      const expired = isQRExpired(form.qr_expiration, form.is_expired);
+      const passesStatus =
+        statusFilter === "All" ||
+        (statusFilter === "Active QR" && !expired) ||
+        (statusFilter === "Expired QR" && expired);
+
+      const passesSearch =
+        query === "" ||
+        (form.owner_name || "").toLowerCase().includes(query) ||
+        (form.animal_unique_identifier || "").toLowerCase().includes(query) ||
+        (form.animal_species || "").toLowerCase().includes(query) ||
+        String(form.form_id).includes(query);
+
+      return passesStatus && passesSearch;
+    });
+
+    setFilteredForms(nextForms);
+  }, [searchQuery, statusFilter, forms]);
+
+  const fetchForms = async (session = null) => {
+    try {
+      if (!refreshing) {
+        setLoading(true);
+      }
+
+      const data = await requestForms(session);
+      const sessionFirstName =
+        session?.firstName ?? (await AsyncStorage.getItem("first_name"));
+      const sessionLastName =
+        session?.lastName ?? (await AsyncStorage.getItem("last_name"));
+      const fullName = normalizeFullName(
+        `${sessionFirstName || ""} ${sessionLastName || ""}`
       );
 
-      const data = await res.json();
       if (data.status === "success") {
-        setForms(data.forms);
-        setFilteredForms(data.forms);
-      } else Alert.alert("Error", data.message || "No forms found.");
+        const nextForms = (data.forms || []).filter(
+          (form) => !fullName || normalizeFullName(form.owner_name) === fullName
+        );
+        setForms(nextForms);
+      } else {
+        setForms([]);
+      }
     } catch (err) {
       console.error(err);
       Alert.alert("Error", "Failed to fetch forms.");
     } finally {
+      setLoading(false);
       setRefreshing(false);
     }
   };
@@ -75,29 +227,22 @@ export default function Stockyard() {
     fetchForms();
   };
 
-  const isQRExpired = (expirationDate, isExpiredFlag) => {
-    if (typeof isExpiredFlag === "boolean") return isExpiredFlag;
-    if (!expirationDate) return true;
-    const expiry = new Date(expirationDate);
-    return expiry <= new Date();
-  };
-
   const goToAppointment = async (form) => {
     if (isQRExpired(form.qr_expiration, form.is_expired)) {
       Alert.alert(
         "QR Expired",
-        "Your QR code has expired. Please request a new inspection form."
+        "This permit has already expired. Please request a new inspection form before scheduling."
       );
       return;
     }
 
-    await AsyncStorage.setItem("selected_form_id", form.form_id.toString());
-    await AsyncStorage.setItem("selected_form_owner", form.owner_name);
-    await AsyncStorage.setItem(
-      "selected_form_eartag",
-      form.animal_unique_identifier
-    );
-    await AsyncStorage.setItem("selected_form_address", form.owner_address);
+    await AsyncStorage.multiSet([
+      ["selected_form_id", String(form.form_id)],
+      ["selected_form_owner", form.owner_name || ""],
+      ["selected_form_eartag", form.animal_unique_identifier || ""],
+      ["selected_form_address", form.owner_address || ""],
+      ["selected_form_expiration", form.qr_expiration || ""],
+    ]);
 
     router.push("/appointment");
   };
@@ -107,124 +252,618 @@ export default function Stockyard() {
     setModalVisible(true);
   };
 
+  const activeCount = forms.filter(
+    (form) => !isQRExpired(form.qr_expiration, form.is_expired)
+  ).length;
+  const expiredCount = forms.filter((form) =>
+    isQRExpired(form.qr_expiration, form.is_expired)
+  ).length;
+
   return (
-    <View style={styles.container}>
-      <TextInput
-        placeholder="Search eartag"
-        value={searchQuery}
-        onChangeText={setSearchQuery}
-        style={styles.searchBar}
-      />
+    <DashboardShell
+      eyebrow="Owner stockyard"
+      title={
+        firstName
+          ? `${firstName}'s livestock permits`
+          : lastName
+          ? `${lastName}'s livestock permits`
+          : "My stockyard"
+      }
+      subtitle="Review your submitted livestock records, scan QR validity quickly, and jump into scheduling from a cleaner stockyard layout."
+      summary={
+        loading
+          ? "Refreshing your stockyard forms..."
+          : `${activeCount} active QR permits and ${expiredCount} expired records in your stockyard.`
+      }
+      refreshControl={
+        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+      }
+    >
+      <View style={styles.scrollContent}>
+        <View style={styles.statsGrid}>
+          <StatCard
+            label="All permits"
+            value={forms.length}
+            caption="Every livestock form filed under your account."
+            icon="barn"
+            accent="meadow"
+            loading={loading}
+          />
+          <StatCard
+            label="Active QR"
+            value={activeCount}
+            caption="Permits currently ready for verification and scheduling."
+            icon="qrcode-scan"
+            accent="wheat"
+            loading={loading}
+          />
+          <StatCard
+            label="Expired"
+            value={expiredCount}
+            caption="Forms that now need renewal before the next movement."
+            icon="calendar-remove-outline"
+            accent="clay"
+            loading={loading}
+          />
+        </View>
 
-      <ScrollView
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-        }
-      >
-        {filteredForms.length === 0 && (
-          <Text style={styles.noFormsText}>No forms found.</Text>
-        )}
+        <View style={styles.surfaceCard}>
+          <Text style={styles.cardEyebrow}>Search and filter</Text>
+          <Text style={styles.cardTitle}>Find the right permit faster</Text>
+          <Text style={styles.cardCopy}>
+            Search by owner, species, ear tag, or form number, then narrow the
+            list to active or expired QR permits.
+          </Text>
 
-        {filteredForms.map((item) => {
-          const expired = isQRExpired(item.qr_expiration, item.is_expired);
+          <View style={styles.searchWrap}>
+            <MaterialCommunityIcons
+              name="magnify"
+              size={20}
+              color={agriPalette.fieldDeep}
+            />
+            <TextInput
+              placeholder="Search owner, species, eartag, or form number"
+              placeholderTextColor={agriPalette.inkSoft}
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              style={styles.searchInput}
+            />
+          </View>
 
-          return (
-            <Card key={item.form_id} style={styles.formCard}>
-              <View style={styles.cardTopRow}>
-                <Card.Content style={{ flex: 1 }}>
-                  <Text style={styles.label}>Form ID: {item.form_id}</Text>
-                  <Text style={styles.text}>
-                    Eartag: {item.animal_unique_identifier}
-                  </Text>
-                  <Text style={styles.text}>Owner: {item.owner_name}</Text>
-                  <Text style={styles.text}>Address: {item.owner_address}</Text>
-                  {expired && (
-                    <Text style={styles.expiredText}>
-                      ❌ QR Expired – Please request a new form
-                    </Text>
-                  )}
-                </Card.Content>
+          <View style={styles.filterRow}>
+            {filterOptions.map((option) => {
+              const active = option === statusFilter;
 
-                <View style={styles.qrBox}>
-                  <QRCode value={item.qr_code} size={80} />
-                  <Text style={styles.qrLabel}>Scan Form</Text>
+              return (
+                <View key={option} style={styles.filterChipWrap}>
+                  <AgriButton
+                    title={option}
+                    variant={active ? "primary" : "muted"}
+                    compact
+                    subtitle={null}
+                    icon={
+                      option === "All"
+                        ? "view-grid-outline"
+                        : option === "Active QR"
+                        ? "shield-check-outline"
+                        : "calendar-remove-outline"
+                    }
+                    trailingIcon={false}
+                    lightText={active}
+                    onPress={() => setStatusFilter(option)}
+                  />
                 </View>
-              </View>
+              );
+            })}
+          </View>
 
-              <Card.Actions style={styles.buttonRow}>
-                <Button
-                  mode="contained"
-                  onPress={() => openModal(item)}
-                  style={[styles.button, { backgroundColor: "#2E7D32" }]}
-                >
-                  View Details
-                </Button>
-                {!expired && (
-                  <Button
-                    mode="contained"
-                    onPress={() => goToAppointment(item)}
-                    style={[styles.button, { backgroundColor: "#4CAF50" }]}
-                  >
-                    Create Schedule
-                  </Button>
-                )}
-              </Card.Actions>
-            </Card>
-          );
-        })}
-      </ScrollView>
+          <View style={styles.refreshButtonWrap}>
+            <AgriButton
+              title="Refresh permits"
+              subtitle="Pull the latest stockyard records"
+              icon="refresh"
+              variant="sky"
+              compact
+              trailingIcon={false}
+              onPress={onRefresh}
+            />
+          </View>
+        </View>
+
+        <View style={styles.surfaceCard}>
+          <Text style={styles.cardEyebrow}>Permit list</Text>
+          <Text style={styles.cardTitle}>Your submitted livestock records</Text>
+          <Text style={styles.cardCopy}>
+            Open full details, inspect QR validity at a glance, and create a
+            schedule directly from each eligible record.
+          </Text>
+
+          {loading ? (
+            <ActivityIndicator
+              size="large"
+              color={agriPalette.field}
+              style={styles.loadingState}
+            />
+          ) : filteredForms.length ? (
+            <View style={styles.formStack}>
+              {filteredForms.map((item) => {
+                const expired = isQRExpired(
+                  item.qr_expiration,
+                  item.is_expired
+                );
+                const qrMeta = getDaysRemaining(item.qr_expiration);
+
+                return (
+                  <View key={item.form_id} style={styles.formCard}>
+                    <View
+                      style={[
+                        styles.cardHeader,
+                        isCompact && styles.cardHeaderCompact,
+                      ]}
+                    >
+                      <View style={styles.headerTextWrap}>
+                        <Text style={styles.formTitle}>
+                          {item.animal_species || "Livestock record"}
+                        </Text>
+                        <Text style={styles.formMeta}>
+                          Form #{item.form_id} - {item.owner_name || "Owner"}
+                        </Text>
+                      </View>
+
+                      <View
+                        style={[
+                          styles.statusBadge,
+                          expired
+                            ? styles.statusBadgeExpired
+                            : styles.statusBadgeActive,
+                        ]}
+                      >
+                        <MaterialCommunityIcons
+                          name={
+                            expired
+                              ? "calendar-remove-outline"
+                              : "shield-check-outline"
+                          }
+                          size={15}
+                          color={
+                            expired ? agriPalette.redClay : agriPalette.fieldDeep
+                          }
+                        />
+                        <Text
+                          style={[
+                            styles.statusBadgeText,
+                            expired
+                              ? styles.statusBadgeTextExpired
+                              : styles.statusBadgeTextActive,
+                          ]}
+                        >
+                          {expired ? "Expired QR" : "Active QR"}
+                        </Text>
+                      </View>
+                    </View>
+
+                    <View
+                      style={[
+                        styles.formBody,
+                        isCompact && styles.formBodyCompact,
+                      ]}
+                    >
+                      <View
+                        style={[
+                          styles.detailColumn,
+                          isCompact && styles.detailColumnCompact,
+                        ]}
+                      >
+                        <View
+                          style={[
+                            styles.infoGrid,
+                            isCompact && styles.infoGridCompact,
+                          ]}
+                        >
+                          <View style={styles.infoBlock}>
+                            <Text style={styles.infoLabel}>Eartag</Text>
+                            <Text style={styles.infoValue}>
+                              {item.animal_unique_identifier || "Not provided"}
+                            </Text>
+                          </View>
+                          <View style={styles.infoBlock}>
+                            <Text style={styles.infoLabel}>Inspection date</Text>
+                            <Text style={styles.infoValue}>
+                              {formatDateLabel(item.date)}
+                            </Text>
+                          </View>
+                          <View style={[styles.infoBlock, styles.infoBlockFull]}>
+                            <Text style={styles.infoLabel}>Owner address</Text>
+                            <Text style={styles.infoValue}>
+                              {item.owner_address || "Not provided"}
+                            </Text>
+                          </View>
+                        </View>
+
+                        <View
+                          style={[
+                            styles.expiryPanel,
+                            expired && styles.expiryPanelExpired,
+                          ]}
+                        >
+                          <MaterialCommunityIcons
+                            name="clock-outline"
+                            size={16}
+                            color={
+                              expired ? agriPalette.redClay : agriPalette.fieldDeep
+                            }
+                          />
+                          <Text
+                            style={[
+                              styles.expiryPanelText,
+                              expired && styles.expiryPanelTextExpired,
+                            ]}
+                          >
+                            {qrMeta}
+                          </Text>
+                        </View>
+                      </View>
+
+                      <View
+                        style={[
+                          styles.qrCard,
+                          isCompact && styles.qrCardCompact,
+                        ]}
+                      >
+                        <View
+                          style={[
+                            styles.qrSurface,
+                            isCompact && styles.qrSurfaceCompact,
+                          ]}
+                        >
+                          <QRCode value={item.qr_code} size={isCompact ? 80 : 92} />
+                        </View>
+                        <Text
+                          style={[
+                            styles.qrLabel,
+                            isCompact && styles.qrLabelCompact,
+                          ]}
+                        >
+                          Scan permit QR
+                        </Text>
+                      </View>
+                    </View>
+
+                    <View style={styles.actionStack}>
+                      <AgriButton
+                        title="View details"
+                        subtitle="Open the full livestock record"
+                        icon="file-search-outline"
+                        variant="primary"
+                        compact
+                        onPress={() => openModal(item)}
+                      />
+                      <AgriButton
+                        title={expired ? "Renew record first" : "Create schedule"}
+                        subtitle={
+                          expired
+                            ? "Expired QR permits cannot be scheduled"
+                            : "Book an appointment for this livestock form"
+                        }
+                        icon={
+                          expired
+                            ? "calendar-remove-outline"
+                            : "calendar-plus-outline"
+                        }
+                        variant={expired ? "muted" : "sky"}
+                        compact
+                        trailingIcon={expired ? false : "arrow-right"}
+                        disabled={expired}
+                        onPress={() => goToAppointment(item)}
+                      />
+                    </View>
+                  </View>
+                );
+              })}
+            </View>
+          ) : (
+            <View style={styles.emptyState}>
+              <MaterialCommunityIcons
+                name="barn"
+                size={34}
+                color={agriPalette.field}
+              />
+              <Text style={styles.emptyTitle}>No permits match this view</Text>
+              <Text style={styles.emptyCopy}>
+                Try a different search term or switch the QR filter to see more
+                stockyard records.
+              </Text>
+            </View>
+          )}
+        </View>
+      </View>
 
       <FormDetailsModal
         visible={modalVisible}
         onClose={() => setModalVisible(false)}
         form={selectedForm}
       />
-    </View>
+    </DashboardShell>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#e8f5e9", padding: 10 },
-  title: {
-    fontSize: 24,
-    fontWeight: "bold",
-    textAlign: "center",
-    marginVertical: 15,
-    color: "#2E7D32",
+  scrollContent: {
+    paddingBottom: 96,
   },
-  searchBar: {
-    backgroundColor: "#fff",
-    padding: 10,
-    borderRadius: 12,
-    marginBottom: 10,
-    marginTop: 20,
-    borderColor: "#2E7D32",
+  statsGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 14,
+    marginBottom: 18,
+  },
+  surfaceCard: {
+    borderRadius: 30,
+    backgroundColor: agriPalette.surface,
     borderWidth: 1,
-    color: "#2E7D32",
-  },
-  noFormsText: { textAlign: "center", marginTop: 20, color: "#2E7D32" },
-  formCard: {
-    marginBottom: 12,
-    borderRadius: 12,
-    backgroundColor: "#fff",
+    borderColor: agriPalette.border,
+    paddingHorizontal: 22,
+    paddingVertical: 22,
+    marginBottom: 18,
+    shadowColor: "#203126",
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.08,
+    shadowRadius: 18,
     elevation: 3,
-    paddingBottom: 10,
   },
-  cardTopRow: { flexDirection: "row", alignItems: "center" },
-  label: { fontWeight: "bold", marginBottom: 4, color: "#2E7D32" },
-  text: { fontSize: 14, marginBottom: 2, color: "#4CAF50" },
-  expiredText: { color: "red", fontWeight: "600", marginTop: 6 },
-  buttonRow: { justifyContent: "space-between", marginTop: 10 },
-  button: { flex: 1, marginHorizontal: 5 },
-  qrBox: {
+  cardEyebrow: {
+    color: agriPalette.field,
+    fontSize: 12,
+    fontWeight: "800",
+    textTransform: "uppercase",
+    letterSpacing: 1.2,
+  },
+  cardTitle: {
+    marginTop: 8,
+    color: agriPalette.ink,
+    fontSize: 25,
+    fontWeight: "900",
+  },
+  cardCopy: {
+    marginTop: 10,
+    color: agriPalette.inkSoft,
+    fontSize: 15,
+    lineHeight: 22,
+  },
+  searchWrap: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    marginTop: 18,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: agriPalette.border,
+    backgroundColor: agriPalette.cream,
+  },
+  searchInput: {
+    flex: 1,
+    minHeight: 44,
+    color: agriPalette.ink,
+    fontSize: 15,
+  },
+  filterRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 10,
+    marginTop: 16,
+  },
+  refreshButtonWrap: {
+    marginTop: 14,
+  },
+  filterChipWrap: {
+    flexBasis: "31%",
+    flexGrow: 1,
+    minWidth: 150,
+  },
+  loadingState: {
+    marginVertical: 40,
+  },
+  formStack: {
+    gap: 14,
+    marginTop: 18,
+  },
+  formCard: {
+    borderRadius: 28,
+    backgroundColor: agriPalette.cream,
+    borderWidth: 1,
+    borderColor: agriPalette.border,
+    paddingHorizontal: 18,
+    paddingVertical: 18,
+  },
+  cardHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    gap: 10,
+  },
+  cardHeaderCompact: {
+    flexDirection: "column",
+  },
+  headerTextWrap: {
+    flex: 1,
+  },
+  formTitle: {
+    color: agriPalette.ink,
+    fontSize: 20,
+    fontWeight: "900",
+  },
+  formMeta: {
+    marginTop: 4,
+    color: agriPalette.inkSoft,
+    fontSize: 13,
+    lineHeight: 20,
+  },
+  statusBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+  },
+  statusBadgeActive: {
+    backgroundColor: "#EEF7E9",
+  },
+  statusBadgeExpired: {
+    backgroundColor: "#F7E1D5",
+  },
+  statusBadgeText: {
+    fontSize: 12,
+    fontWeight: "800",
+  },
+  statusBadgeTextActive: {
+    color: agriPalette.fieldDeep,
+  },
+  statusBadgeTextExpired: {
+    color: agriPalette.redClay,
+  },
+  formBody: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 14,
+    marginTop: 16,
+  },
+  formBodyCompact: {
+    flexDirection: "column",
+  },
+  detailColumn: {
+    flex: 1,
+    minWidth: 220,
+  },
+  detailColumnCompact: {
+    minWidth: 0,
+  },
+  infoGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 12,
+  },
+  infoGridCompact: {
+    flexDirection: "column",
+  },
+  infoBlock: {
+    flexBasis: "48%",
+    flexGrow: 1,
+    minWidth: 130,
+    borderRadius: 18,
+    backgroundColor: agriPalette.surface,
+    borderWidth: 1,
+    borderColor: agriPalette.border,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+  },
+  infoBlockFull: {
+    flexBasis: "100%",
+  },
+  infoLabel: {
+    color: agriPalette.inkSoft,
+    fontSize: 12,
+    fontWeight: "700",
+    textTransform: "uppercase",
+    letterSpacing: 0.8,
+  },
+  infoValue: {
+    marginTop: 8,
+    color: agriPalette.ink,
+    fontSize: 15,
+    fontWeight: "800",
+    lineHeight: 21,
+  },
+  expiryPanel: {
+    flexDirection: "row",
+    alignItems: "center",
+    alignSelf: "flex-start",
+    gap: 8,
+    marginTop: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 999,
+    backgroundColor: "#EEF7E9",
+  },
+  expiryPanelExpired: {
+    backgroundColor: "#F7E1D5",
+  },
+  expiryPanelText: {
+    color: agriPalette.fieldDeep,
+    fontSize: 13,
+    fontWeight: "800",
+  },
+  expiryPanelTextExpired: {
+    color: agriPalette.redClay,
+  },
+  qrCard: {
+    width: 138,
     alignItems: "center",
     justifyContent: "center",
-    padding: 5,
-    backgroundColor: "#e8f5e9",
-    borderRadius: 12,
+    borderRadius: 24,
+    backgroundColor: agriPalette.surface,
     borderWidth: 1,
-    borderColor: "#2E7D32",
-    marginRight: 5,
+    borderColor: agriPalette.border,
+    paddingHorizontal: 12,
+    paddingVertical: 14,
   },
-  qrLabel: { fontSize: 12, color: "#2E7D32", fontWeight: "bold", marginTop: 4 },
+  qrCardCompact: {
+    width: "100%",
+    flexDirection: "row",
+    justifyContent: "flex-start",
+    gap: 14,
+    paddingHorizontal: 16,
+  },
+  qrSurface: {
+    padding: 10,
+    borderRadius: 18,
+    backgroundColor: agriPalette.white,
+  },
+  qrSurfaceCompact: {
+    padding: 12,
+  },
+  qrLabel: {
+    marginTop: 10,
+    color: agriPalette.fieldDeep,
+    fontSize: 12,
+    fontWeight: "800",
+    textAlign: "center",
+  },
+  qrLabelCompact: {
+    marginTop: 0,
+    flex: 1,
+    fontSize: 13,
+    lineHeight: 18,
+    textAlign: "left",
+  },
+  actionStack: {
+    gap: 10,
+    marginTop: 16,
+  },
+  emptyState: {
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 18,
+    paddingHorizontal: 20,
+    paddingVertical: 30,
+    borderRadius: 24,
+    backgroundColor: agriPalette.cream,
+    borderWidth: 1,
+    borderColor: agriPalette.border,
+  },
+  emptyTitle: {
+    marginTop: 12,
+    color: agriPalette.ink,
+    fontSize: 18,
+    fontWeight: "900",
+  },
+  emptyCopy: {
+    marginTop: 8,
+    color: agriPalette.inkSoft,
+    fontSize: 14,
+    lineHeight: 21,
+    textAlign: "center",
+  },
 });

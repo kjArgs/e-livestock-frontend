@@ -1,16 +1,21 @@
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
-  FlatList,
-  ScrollView,
+  Pressable,
+  RefreshControl,
   StyleSheet,
   Text,
   TextInput,
-  TouchableOpacity,
   View,
+  useWindowDimensions,
 } from "react-native";
+import AgriButton from "../../components/AgriButton";
+import DashboardShell from "../../components/DashboardShell";
+import StatCard from "../../components/StatCard";
+import { agriPalette } from "../../constants/agriTheme";
 
 const API_ENDPOINTS = {
   pending:
@@ -27,70 +32,228 @@ const API_ENDPOINTS = {
 const UPDATE_URL =
   "https://e-livestock.tulongkabataanbicol.com/eLiveStockAPI/API/update_schedule_status.php";
 
-const cancel_URL =
+const CANCEL_URL =
   "https://e-livestock.tulongkabataanbicol.com/eLiveStockAPI/API/cancel_antemortem_schedules.php";
 
-const formatTime = (time) => {
-  if (!time) return "";
-  const [hour, minute] = time.split(":");
-  const h = ((+hour + 11) % 12) + 1;
-  const ampm = +hour >= 12 ? "PM" : "AM";
-  return `${h}:${minute} ${ampm}`;
+const STATUS_ORDER = ["pending", "accepted", "ongoing", "done", "cancelled"];
+
+const STATUS_META = {
+  pending: {
+    label: "Pending",
+    icon: "clock-outline",
+    badgeBackground: "#FFF4D6",
+    badgeText: "#8A6510",
+    chipBackground: "#FBF2D3",
+    chipBorder: "#E8D08B",
+    chipText: "#7A5A12",
+    description: "Requests waiting for confirmation from the inspector team.",
+  },
+  accepted: {
+    label: "Accepted",
+    icon: "calendar-check-outline",
+    badgeBackground: "#E4F1EB",
+    badgeText: agriPalette.fieldDeep,
+    chipBackground: "#E1EFE8",
+    chipBorder: "#B9D3C6",
+    chipText: agriPalette.fieldDeep,
+    description: "Approved visits that are ready for QR verification or field prep.",
+  },
+  ongoing: {
+    label: "Ongoing",
+    icon: "tractor-variant",
+    badgeBackground: "#E7EEF7",
+    badgeText: "#315E8F",
+    chipBackground: "#E6EEF7",
+    chipBorder: "#C4D5EA",
+    chipText: "#315E8F",
+    description: "Field visits currently happening and waiting to be completed.",
+  },
+  done: {
+    label: "Done",
+    icon: "check-decagram-outline",
+    badgeBackground: "#EEF7E9",
+    badgeText: agriPalette.field,
+    chipBackground: "#E7F4DF",
+    chipBorder: "#C6DFB5",
+    chipText: agriPalette.field,
+    description: "Completed inspections that have already been closed out.",
+  },
+  cancelled: {
+    label: "Cancelled",
+    icon: "close-circle-outline",
+    badgeBackground: "#F7E1D5",
+    badgeText: agriPalette.redClay,
+    chipBackground: "#F6E0D7",
+    chipBorder: "#E5B6A4",
+    chipText: agriPalette.redClay,
+    description: "Visits removed from the schedule before inspection happened.",
+  },
 };
+
+function formatTime(time) {
+  if (!time) return "";
+
+  const [hour, minute] = time.split(":");
+  const nextHour = ((Number(hour) + 11) % 12) + 1;
+  const ampm = Number(hour) >= 12 ? "PM" : "AM";
+  return `${nextHour}:${minute} ${ampm}`;
+}
+
+function formatDate(dateValue) {
+  if (!dateValue) {
+    return "Date not recorded";
+  }
+
+  const parsed = new Date(`${dateValue}T00:00:00`);
+
+  if (Number.isNaN(parsed.getTime())) {
+    return dateValue;
+  }
+
+  return parsed.toLocaleDateString(undefined, {
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
+function formatScheduleWindow(schedule) {
+  const dateLabel = formatDate(schedule?.date);
+
+  if (schedule?.start_time && schedule?.end_time) {
+    return `${dateLabel} • ${formatTime(schedule.start_time)} - ${formatTime(
+      schedule.end_time
+    )}`;
+  }
+
+  if (schedule?.start_time) {
+    return `${dateLabel} • ${formatTime(schedule.start_time)}`;
+  }
+
+  return dateLabel;
+}
+
+async function fetchScheduleList(status) {
+  const response = await fetch(API_ENDPOINTS[status]);
+  const data = await response.json();
+
+  if (data.status === "success") {
+    return Array.isArray(data.schedules) ? data.schedules : [];
+  }
+
+  return [];
+}
+
+function matchesSearch(schedule, query) {
+  if (!query) {
+    return true;
+  }
+
+  const normalizedQuery = query.toLowerCase().trim();
+
+  return (
+    String(schedule?.owner_name || "")
+      .toLowerCase()
+      .includes(normalizedQuery) ||
+    String(schedule?.eartag_number || "")
+      .toLowerCase()
+      .includes(normalizedQuery) ||
+    String(schedule?.location || "")
+      .toLowerCase()
+      .includes(normalizedQuery) ||
+    String(schedule?.form_id || "").includes(normalizedQuery)
+  );
+}
 
 export default function AntemortemScheduleScreen() {
   const router = useRouter();
-  const [allSchedules, setAllSchedules] = useState([]); 
-  const [schedules, setSchedules] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const { width } = useWindowDimensions();
+  const isWide = width >= 880;
+  const [allSchedules, setAllSchedules] = useState([]);
+  const [statusCounts, setStatusCounts] = useState({
+    pending: 0,
+    accepted: 0,
+    ongoing: 0,
+    done: 0,
+    cancelled: 0,
+  });
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [busyScheduleId, setBusyScheduleId] = useState(null);
   const [statusFilter, setStatusFilter] = useState("pending");
   const [searchQuery, setSearchQuery] = useState("");
+  const [reloadToken, setReloadToken] = useState(0);
 
   useEffect(() => {
-    fetchSchedules();
-  }, [statusFilter]);
+    let active = true;
 
-  useEffect(() => {
-    applySearch(searchQuery);
-  }, [searchQuery]);
+    const loadSchedules = async () => {
+      try {
+        setLoading(true);
 
-  const fetchSchedules = async () => {
-    try {
-      setLoading(true);
-      const res = await fetch(API_ENDPOINTS[statusFilter]);
-      const data = await res.json();
-      if (data.status === "success") {
-        setAllSchedules(data.schedules || []);
-        setSchedules(data.schedules || []);
-      } else {
-        setAllSchedules([]);
-        setSchedules([]);
+        const [selectedSchedules, countCollections] = await Promise.all([
+          fetchScheduleList(statusFilter),
+          Promise.all(
+            STATUS_ORDER.map(async (status) => {
+              try {
+                const schedules = await fetchScheduleList(status);
+                return [status, schedules.length];
+              } catch (_error) {
+                return [status, 0];
+              }
+            })
+          ),
+        ]);
+
+        if (!active) {
+          return;
+        }
+
+        setAllSchedules(selectedSchedules);
+        setStatusCounts(Object.fromEntries(countCollections));
+      } catch (error) {
+        console.error(error);
+
+        if (active) {
+          setAllSchedules([]);
+          Alert.alert("Error", "Failed to fetch schedules.");
+        }
+      } finally {
+        if (active) {
+          setLoading(false);
+          setRefreshing(false);
+          setBusyScheduleId(null);
+        }
       }
-    } catch (err) {
-      console.error(err);
-      Alert.alert("Error", "Failed to fetch schedules.");
-    } finally {
-      setLoading(false);
+    };
+
+    loadSchedules();
+
+    return () => {
+      active = false;
+    };
+  }, [statusFilter, reloadToken]);
+
+  const filteredSchedules = allSchedules.filter((schedule) =>
+    matchesSearch(schedule, searchQuery)
+  );
+
+  const activeMeta = STATUS_META[statusFilter];
+  const closedCount = statusCounts.done + statusCounts.cancelled;
+
+  const triggerReload = (useRefreshState = false) => {
+    if (useRefreshState) {
+      setRefreshing(true);
     }
-  };
 
-  const applySearch = (query) => {
-    const lowerQuery = query.toLowerCase().trim();
-    if (!lowerQuery) return setSchedules(allSchedules);
-
-    const filtered = allSchedules.filter(
-      (s) =>
-        s.owner_name.toLowerCase().includes(lowerQuery) ||
-        s.eartag_number.toLowerCase().includes(lowerQuery) ||
-        s.form_id?.toString().includes(lowerQuery)
-    );
-    setSchedules(filtered);
+    setReloadToken((current) => current + 1);
   };
 
   const updateScheduleStatus = async (scheduleId, newStatus) => {
     try {
-      setLoading(true);
-      const res = await fetch(UPDATE_URL, {
+      setBusyScheduleId(scheduleId);
+
+      const response = await fetch(UPDATE_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -98,265 +261,693 @@ export default function AntemortemScheduleScreen() {
           new_status: newStatus,
         }),
       });
-      const data = await res.json();
+      const data = await response.json();
+
       if (data.status === "success") {
-        Alert.alert("Success", `Schedule marked as ${newStatus}!`);
-        setSchedules((prev) =>
-          prev.filter((s) => s.schedule_id !== scheduleId)
-        );
-        setAllSchedules((prev) =>
-          prev.filter((s) => s.schedule_id !== scheduleId)
-        );
+        Alert.alert("Success", `Schedule marked as ${newStatus}.`);
+        triggerReload(false);
       } else {
-        Alert.alert("Error", data.message || "Failed to update schedule");
+        Alert.alert("Error", data.message || "Failed to update schedule.");
+        setBusyScheduleId(null);
       }
-    } catch (err) {
-      console.error(err);
+    } catch (error) {
+      console.error(error);
       Alert.alert("Error", "Something went wrong.");
-    } finally {
-      setLoading(false);
+      setBusyScheduleId(null);
     }
   };
 
   const deleteSchedule = async (scheduleId) => {
     try {
-      setLoading(true);
-      const res = await fetch(cancel_URL, {
+      setBusyScheduleId(scheduleId);
+
+      const response = await fetch(CANCEL_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ schedule_id: scheduleId }),
       });
-      const data = await res.json();
+      const data = await response.json();
 
       if (data.status === "success") {
-        Alert.alert("Delete", "Schedule Cancelled successfully!");
-        setSchedules((prev) =>
-          prev.filter((s) => s.schedule_id !== scheduleId)
-        );
-        setAllSchedules((prev) =>
-          prev.filter((s) => s.schedule_id !== scheduleId)
-        );
+        Alert.alert("Cancelled", "Schedule cancelled successfully.");
+        triggerReload(false);
       } else {
-        Alert.alert("Error", data.message || "Failed to cancel schedule");
+        Alert.alert("Error", data.message || "Failed to cancel schedule.");
+        setBusyScheduleId(null);
       }
-    } catch (err) {
-      console.error(err);
+    } catch (error) {
+      console.error(error);
       Alert.alert("Error", "Unable to cancel schedule.");
-    } finally {
-      setLoading(false);
+      setBusyScheduleId(null);
     }
   };
 
-  const renderSchedule = ({ item }) => (
-    <View style={styles.scheduleCard}>
-      <Text style={styles.ownerText}>Owner: {item.owner_name}</Text>
-      <Text>Eartag: {item.eartag_number}</Text>
-      <Text>Location: {item.location}</Text>
-      <Text>
-        Scheduled:{" "}
-        {item.date
-          ? `${new Date(item.date).toLocaleDateString()} ${
-              item.start_time && item.end_time
-                ? `${formatTime(item.start_time)} - ${formatTime(
-                    item.end_time
-                  )}`
-                : item.start_time
-                ? formatTime(item.start_time)
-                : ""
-            }`
-          : "N/A"}
-      </Text>
-      <Text>Status: {item.status}</Text>
+  const confirmCancellation = (scheduleId) => {
+    Alert.alert(
+      "Cancel schedule",
+      "Are you sure you want to cancel this accepted visit?",
+      [
+        { text: "Keep", style: "cancel" },
+        {
+          text: "Cancel visit",
+          style: "destructive",
+          onPress: () => deleteSchedule(scheduleId),
+        },
+      ]
+    );
+  };
 
-      {/* Buttons based on status */}
-      {statusFilter === "pending" && (
-        <View style={styles.buttonRow}>
-          <TouchableOpacity
-            style={[styles.actionButton, styles.acceptButton]}
-            onPress={() => updateScheduleStatus(item.schedule_id, "accepted")}
-          >
-            <Text style={styles.buttonText}>Accept</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.actionButton, styles.cancelButton]}
-            onPress={() => updateScheduleStatus(item.schedule_id, "cancelled")}
-          >
-            <Text style={styles.buttonText}>Cancel</Text>
-          </TouchableOpacity>
+  const renderActions = (schedule) => {
+    const isBusy = busyScheduleId === schedule.schedule_id;
+
+    if (statusFilter === "pending") {
+      return (
+        <View style={styles.actionStack}>
+          <AgriButton
+            title="Accept request"
+            subtitle="Move this schedule into the accepted queue"
+            icon="check-decagram-outline"
+            variant="primary"
+            compact
+            trailingIcon={false}
+            loading={isBusy}
+            disabled={Boolean(busyScheduleId)}
+            onPress={() => updateScheduleStatus(schedule.schedule_id, "accepted")}
+          />
+          <AgriButton
+            title="Decline request"
+            subtitle="Mark this booking as cancelled"
+            icon="close-circle-outline"
+            variant="danger"
+            compact
+            trailingIcon={false}
+            disabled={Boolean(busyScheduleId)}
+            onPress={() => updateScheduleStatus(schedule.schedule_id, "cancelled")}
+          />
         </View>
-      )}
+      );
+    }
 
-      {statusFilter === "accepted" && (
-        <View style={styles.buttonRow}>
-          <TouchableOpacity
-            style={[styles.actionButton, styles.startButton]}
-            onPress={() => updateScheduleStatus(item.schedule_id, "ongoing")}
-          >
-            <Text style={styles.buttonText}>Start</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.actionButton, styles.verifyButton]}
+    if (statusFilter === "accepted") {
+      return (
+        <View style={styles.actionStack}>
+          <AgriButton
+            title="Start field visit"
+            subtitle="Move this schedule into the ongoing queue"
+            icon="play-circle-outline"
+            variant="sky"
+            compact
+            trailingIcon={false}
+            loading={isBusy}
+            disabled={Boolean(busyScheduleId)}
+            onPress={() => updateScheduleStatus(schedule.schedule_id, "ongoing")}
+          />
+          <AgriButton
+            title="Verify QR"
+            subtitle="Open the scanner for this livestock form"
+            icon="qrcode-scan"
+            variant="secondary"
+            compact
+            disabled={Boolean(busyScheduleId)}
             onPress={() =>
               router.push({
                 pathname: "/antemortemScanQRcode",
-                params: { form_id: item.form_id },
+                params: { form_id: schedule.form_id },
               })
             }
-          >
-            <Text style={styles.buttonText}>Verify</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.actionButton, styles.cancelButton]}
-            onPress={() =>
-              Alert.alert(
-                "Confirm",
-                "Are you sure you want to cancel this schedule?",
-                [
-                  { text: "No", style: "cancel" },
-                  {
-                    text: "Yes",
-                    onPress: () => deleteSchedule(item.schedule_id),
-                  },
-                ]
-              )
-            }
-          >
-            <Text style={styles.buttonText}>Cancel</Text>
-          </TouchableOpacity>
+          />
+          <AgriButton
+            title="Cancel visit"
+            subtitle="Remove this accepted booking from the schedule"
+            icon="calendar-remove-outline"
+            variant="danger"
+            compact
+            trailingIcon={false}
+            disabled={Boolean(busyScheduleId)}
+            onPress={() => confirmCancellation(schedule.schedule_id)}
+          />
         </View>
-      )}
+      );
+    }
 
-      {statusFilter === "ongoing" && (
-        <View style={styles.buttonRow}>
-          <TouchableOpacity
-            style={[styles.actionButton, styles.doneButton]}
-            onPress={() => updateScheduleStatus(item.schedule_id, "done")}
-          >
-            <Text style={styles.buttonText}>Mark Done</Text>
-          </TouchableOpacity>
+    if (statusFilter === "ongoing") {
+      return (
+        <View style={styles.actionStack}>
+          <AgriButton
+            title="Mark inspection done"
+            subtitle="Close this field visit as completed"
+            icon="check-circle-outline"
+            variant="primary"
+            compact
+            trailingIcon={false}
+            loading={isBusy}
+            disabled={Boolean(busyScheduleId)}
+            onPress={() => updateScheduleStatus(schedule.schedule_id, "done")}
+          />
         </View>
-      )}
-    </View>
-  );
+      );
+    }
+
+    return null;
+  };
 
   return (
-    <View style={styles.container}>
-      {/* Search Bar */}
-      <TextInput
-        style={styles.searchInput}
-        placeholder="Search by Owner, Eartag, or Form ID"
-        value={searchQuery}
-        onChangeText={setSearchQuery}
-      />
-
-      {/* Status Filter */}
-      <View style={{ marginBottom: 10 }}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-          {["pending", "accepted", "ongoing", "done", "cancelled"].map(
-            (status) => (
-              <TouchableOpacity
-                key={status}
-                style={[
-                  styles.filterButton,
-                  statusFilter === status && styles.activeFilterButton,
-                ]}
-                onPress={() => setStatusFilter(status)}
-              >
-                <Text
-                  style={[
-                    styles.filterText,
-                    statusFilter === status && styles.activeFilterText,
-                  ]}
-                >
-                  {status.charAt(0).toUpperCase() + status.slice(1)}
-                </Text>
-              </TouchableOpacity>
-            )
-          )}
-          <View style={{ marginRight: 10 }} />
-        </ScrollView>
+    <DashboardShell
+      eyebrow="Antemortem schedule board"
+      title="Review schedules"
+      subtitle="Monitor every livestock visit from pending requests to completed inspections in one cleaner, easier-to-scan workspace."
+      summary={
+        loading
+          ? "Refreshing the antemortem schedule board..."
+          : `${statusCounts.pending} pending, ${statusCounts.accepted} accepted, and ${statusCounts.ongoing} ongoing visits across the inspection queue.`
+      }
+      refreshControl={
+        <RefreshControl refreshing={refreshing} onRefresh={() => triggerReload(true)} />
+      }
+    >
+      <View style={styles.statsGrid}>
+        <StatCard
+          label="Pending queue"
+          value={statusCounts.pending}
+          caption="Requests still waiting for confirmation."
+          icon="clock-outline"
+          accent="wheat"
+          loading={loading}
+        />
+        <StatCard
+          label="Active field"
+          value={statusCounts.ongoing}
+          caption="Inspections currently moving through the field."
+          icon="tractor-variant"
+          accent="sky"
+          loading={loading}
+        />
+        <StatCard
+          label="Closed visits"
+          value={closedCount}
+          caption="Completed or cancelled schedules already closed out."
+          icon="check-decagram-outline"
+          accent="meadow"
+          loading={loading}
+        />
       </View>
 
-      {loading ? (
-        <ActivityIndicator size="large" style={{ marginTop: 50 }} />
-      ) : schedules.length === 0 ? (
-        <Text style={{ marginTop: 50, textAlign: "center" }}>
-          No {statusFilter} schedules.
+      <View style={styles.surfaceCard}>
+        <Text style={styles.cardEyebrow}>Search and filter</Text>
+        <Text style={styles.cardTitle}>Shift between schedule queues</Text>
+        <Text style={styles.cardCopy}>
+          Search by owner, eartag, location, or form number, then switch between
+          inspection stages with a cleaner status board.
         </Text>
-      ) : (
-        <FlatList
-          data={schedules}
-          keyExtractor={(item) => item.schedule_id.toString()}
-          renderItem={renderSchedule}
-          contentContainerStyle={{ paddingBottom: 20 }}
-        />
-      )}
-    </View>
+
+        <View style={styles.searchWrap}>
+          <MaterialCommunityIcons
+            name="magnify"
+            size={20}
+            color={agriPalette.fieldDeep}
+          />
+          <TextInput
+            placeholder="Search owner, eartag, location, or form number"
+            placeholderTextColor={agriPalette.inkSoft}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            style={styles.searchInput}
+          />
+        </View>
+
+        <View style={styles.filterGrid}>
+          {STATUS_ORDER.map((status) => {
+            const meta = STATUS_META[status];
+            const isActive = status === statusFilter;
+
+            return (
+              <Pressable
+                key={status}
+                onPress={() => setStatusFilter(status)}
+                style={[
+                  styles.filterCard,
+                  {
+                    backgroundColor: isActive
+                      ? meta.badgeBackground
+                      : agriPalette.surface,
+                    borderColor: isActive ? meta.chipBorder : agriPalette.border,
+                  },
+                ]}
+              >
+                <View
+                  style={[
+                    styles.filterIconWrap,
+                    { backgroundColor: meta.chipBackground },
+                  ]}
+                >
+                  <MaterialCommunityIcons
+                    name={meta.icon}
+                    size={18}
+                    color={meta.chipText}
+                  />
+                </View>
+                <View style={styles.filterTextWrap}>
+                  <Text
+                    style={[
+                      styles.filterTitle,
+                      { color: isActive ? meta.chipText : agriPalette.ink },
+                    ]}
+                  >
+                    {meta.label}
+                  </Text>
+                  <Text style={styles.filterCount}>{statusCounts[status] || 0}</Text>
+                </View>
+              </Pressable>
+            );
+          })}
+        </View>
+
+        <View
+          style={[
+            styles.scopeNote,
+            { backgroundColor: activeMeta.badgeBackground },
+          ]}
+        >
+          <MaterialCommunityIcons
+            name={activeMeta.icon}
+            size={18}
+            color={activeMeta.badgeText}
+          />
+          <Text style={[styles.scopeNoteText, { color: activeMeta.badgeText }]}>
+            {activeMeta.description}
+          </Text>
+        </View>
+      </View>
+
+      <View style={styles.surfaceCard}>
+        <View style={styles.sectionHeader}>
+          <View>
+            <Text style={styles.cardEyebrow}>Schedule list</Text>
+            <Text style={styles.cardTitle}>
+              {activeMeta.label} visits
+            </Text>
+            <Text style={styles.cardCopy}>
+              {filteredSchedules.length} result
+              {filteredSchedules.length === 1 ? "" : "s"} visible in this queue.
+            </Text>
+          </View>
+
+          <View
+            style={[
+              styles.queueBadge,
+              { backgroundColor: activeMeta.badgeBackground },
+            ]}
+          >
+            <MaterialCommunityIcons
+              name={activeMeta.icon}
+              size={16}
+              color={activeMeta.badgeText}
+            />
+            <Text style={[styles.queueBadgeText, { color: activeMeta.badgeText }]}>
+              {activeMeta.label}
+            </Text>
+          </View>
+        </View>
+
+        {loading ? (
+          <ActivityIndicator
+            size="large"
+            color={agriPalette.field}
+            style={styles.loadingState}
+          />
+        ) : filteredSchedules.length ? (
+          <View style={styles.scheduleStack}>
+            {filteredSchedules.map((schedule) => {
+              const isBusy = busyScheduleId === schedule.schedule_id;
+
+              return (
+                <View key={schedule.schedule_id} style={styles.scheduleCard}>
+                  <View
+                    style={[
+                      styles.scheduleHeader,
+                      isWide && styles.scheduleHeaderWide,
+                    ]}
+                  >
+                    <View style={styles.scheduleHeaderText}>
+                      <Text style={styles.ownerName}>
+                        {schedule.owner_name || "Owner not recorded"}
+                      </Text>
+                      <Text style={styles.formMeta}>
+                        Form #{schedule.form_id || "N/A"} • Schedule #
+                        {schedule.schedule_id}
+                      </Text>
+                    </View>
+
+                    <View
+                      style={[
+                        styles.statusBadge,
+                        { backgroundColor: activeMeta.badgeBackground },
+                      ]}
+                    >
+                      <MaterialCommunityIcons
+                        name={activeMeta.icon}
+                        size={15}
+                        color={activeMeta.badgeText}
+                      />
+                      <Text
+                        style={[
+                          styles.statusBadgeText,
+                          { color: activeMeta.badgeText },
+                        ]}
+                      >
+                        {activeMeta.label}
+                      </Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.scheduleWindowCard}>
+                    <MaterialCommunityIcons
+                      name="calendar-clock-outline"
+                      size={18}
+                      color={agriPalette.fieldDeep}
+                    />
+                    <Text style={styles.scheduleWindowText}>
+                      {formatScheduleWindow(schedule)}
+                    </Text>
+                  </View>
+
+                  <View style={[styles.infoGrid, isWide && styles.infoGridWide]}>
+                    <View style={styles.infoCard}>
+                      <Text style={styles.infoLabel}>Eartag</Text>
+                      <Text style={styles.infoValue}>
+                        {schedule.eartag_number || "Not provided"}
+                      </Text>
+                    </View>
+                    <View style={styles.infoCard}>
+                      <Text style={styles.infoLabel}>Location</Text>
+                      <Text style={styles.infoValue}>
+                        {schedule.location || "Location not provided"}
+                      </Text>
+                    </View>
+                  </View>
+
+                  {renderActions(schedule)}
+
+                  {isBusy ? (
+                    <View style={styles.inlineLoading}>
+                      <ActivityIndicator size="small" color={agriPalette.field} />
+                      <Text style={styles.inlineLoadingText}>
+                        Updating schedule...
+                      </Text>
+                    </View>
+                  ) : null}
+                </View>
+              );
+            })}
+          </View>
+        ) : (
+          <View style={styles.emptyState}>
+            <MaterialCommunityIcons
+              name={activeMeta.icon}
+              size={34}
+              color={agriPalette.field}
+            />
+            <Text style={styles.emptyTitle}>
+              No {activeMeta.label.toLowerCase()} visits found
+            </Text>
+            <Text style={styles.emptyCopy}>
+              Try a different search term or refresh the schedule board to check
+              for newer inspection activity.
+            </Text>
+          </View>
+        )}
+      </View>
+    </DashboardShell>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 15, backgroundColor: "#E6F2E6" },
-  searchInput: {
-    marginTop: 20,
-    backgroundColor: "#fff",
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    marginBottom: 10,
-    borderColor: "#2E7D32",
-    borderWidth: 1,
-    color: "#333",
+  statsGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 14,
+    marginBottom: 18,
   },
-  filterButton: {
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 20,
-    backgroundColor: "#C8E6C9",
-    marginRight: 10,
-    justifyContent: "center",
+  surfaceCard: {
+    borderRadius: 30,
+    backgroundColor: agriPalette.surface,
+    borderWidth: 1,
+    borderColor: agriPalette.border,
+    paddingHorizontal: 22,
+    paddingVertical: 22,
+    marginBottom: 18,
+    shadowColor: "#203126",
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.08,
+    shadowRadius: 18,
+    elevation: 3,
+  },
+  cardEyebrow: {
+    color: agriPalette.field,
+    fontSize: 12,
+    fontWeight: "800",
+    textTransform: "uppercase",
+    letterSpacing: 1.2,
+  },
+  cardTitle: {
+    marginTop: 8,
+    color: agriPalette.ink,
+    fontSize: 25,
+    fontWeight: "900",
+  },
+  cardCopy: {
+    marginTop: 10,
+    color: agriPalette.inkSoft,
+    fontSize: 15,
+    lineHeight: 22,
+  },
+  searchWrap: {
+    flexDirection: "row",
     alignItems: "center",
-  },
-  activeFilterButton: { backgroundColor: "#4CAF50" },
-  filterText: { color: "#000", fontWeight: "bold" },
-  activeFilterText: { color: "#fff" },
-  scheduleCard: {
-    backgroundColor: "#fff",
-    padding: 20,
-    borderRadius: 15,
-    marginBottom: 15,
+    gap: 10,
+    marginTop: 18,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 22,
     borderWidth: 1,
-    borderColor: "#C8E6C9",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.1,
-    shadowRadius: 6,
-    elevation: 5,
+    borderColor: agriPalette.border,
+    backgroundColor: agriPalette.cream,
   },
-  ownerText: {
-    fontWeight: "bold",
-    fontSize: 16,
-    marginBottom: 5,
-    color: "#2E7D32",
+  searchInput: {
+    flex: 1,
+    minHeight: 44,
+    color: agriPalette.ink,
+    fontSize: 15,
   },
-  buttonRow: {
+  filterGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 12,
+    marginTop: 18,
+  },
+  filterCard: {
+    flexBasis: "48%",
+    flexGrow: 1,
+    minWidth: 148,
+    flexDirection: "row",
+    alignItems: "center",
+    borderRadius: 22,
+    borderWidth: 1,
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+  },
+  filterIconWrap: {
+    width: 38,
+    height: 38,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 12,
+  },
+  filterTextWrap: {
+    flex: 1,
+  },
+  filterTitle: {
+    fontSize: 14,
+    fontWeight: "800",
+  },
+  filterCount: {
+    marginTop: 3,
+    color: agriPalette.inkSoft,
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  scopeNote: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    marginTop: 18,
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+    borderRadius: 22,
+  },
+  scopeNoteText: {
+    flex: 1,
+    marginLeft: 10,
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: "700",
+  },
+  sectionHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
-    marginTop: 15,
-    flexWrap: "wrap",
+    alignItems: "flex-start",
+    gap: 14,
   },
-  actionButton: {
-    flex: 1,
-    padding: 12,
-    borderRadius: 10,
+  queueBadge: {
+    flexDirection: "row",
     alignItems: "center",
-    marginHorizontal: 5,
-    marginTop: 5,
+    gap: 8,
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    marginTop: 4,
   },
-  acceptButton: { backgroundColor: "#2196F3" },
-  cancelButton: { backgroundColor: "#f44336" },
-  startButton: { backgroundColor: "#FF9800" },
-  verifyButton: { backgroundColor: "#009688" },
-  doneButton: { backgroundColor: "#4CAF50" },
-  buttonText: { color: "#fff", fontWeight: "bold" },
+  queueBadgeText: {
+    fontSize: 12,
+    fontWeight: "800",
+  },
+  loadingState: {
+    marginVertical: 40,
+  },
+  scheduleStack: {
+    gap: 14,
+    marginTop: 18,
+  },
+  scheduleCard: {
+    borderRadius: 28,
+    backgroundColor: agriPalette.cream,
+    borderWidth: 1,
+    borderColor: agriPalette.border,
+    paddingHorizontal: 18,
+    paddingVertical: 18,
+  },
+  scheduleHeader: {
+    gap: 12,
+  },
+  scheduleHeaderWide: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+  },
+  scheduleHeaderText: {
+    flex: 1,
+  },
+  ownerName: {
+    color: agriPalette.ink,
+    fontSize: 22,
+    fontWeight: "900",
+  },
+  formMeta: {
+    marginTop: 4,
+    color: agriPalette.inkSoft,
+    fontSize: 13,
+    lineHeight: 20,
+  },
+  statusBadge: {
+    alignSelf: "flex-start",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 7,
+    borderRadius: 999,
+    paddingHorizontal: 11,
+    paddingVertical: 8,
+  },
+  statusBadgeText: {
+    fontSize: 12,
+    fontWeight: "800",
+  },
+  scheduleWindowCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    marginTop: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+    borderRadius: 20,
+    backgroundColor: agriPalette.surface,
+    borderWidth: 1,
+    borderColor: agriPalette.border,
+  },
+  scheduleWindowText: {
+    flex: 1,
+    color: agriPalette.fieldDeep,
+    fontSize: 14,
+    fontWeight: "800",
+    lineHeight: 20,
+  },
+  infoGrid: {
+    gap: 12,
+    marginTop: 14,
+  },
+  infoGridWide: {
+    flexDirection: "row",
+  },
+  infoCard: {
+    flex: 1,
+    borderRadius: 22,
+    backgroundColor: agriPalette.surface,
+    borderWidth: 1,
+    borderColor: agriPalette.border,
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+  },
+  infoLabel: {
+    color: agriPalette.inkSoft,
+    fontSize: 12,
+    fontWeight: "800",
+    textTransform: "uppercase",
+    letterSpacing: 0.8,
+  },
+  infoValue: {
+    marginTop: 8,
+    color: agriPalette.ink,
+    fontSize: 15,
+    lineHeight: 22,
+    fontWeight: "800",
+  },
+  actionStack: {
+    gap: 10,
+    marginTop: 16,
+  },
+  inlineLoading: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginTop: 12,
+  },
+  inlineLoadingText: {
+    color: agriPalette.inkSoft,
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  emptyState: {
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 18,
+    paddingHorizontal: 20,
+    paddingVertical: 30,
+    borderRadius: 24,
+    backgroundColor: agriPalette.cream,
+    borderWidth: 1,
+    borderColor: agriPalette.border,
+  },
+  emptyTitle: {
+    marginTop: 12,
+    color: agriPalette.ink,
+    fontSize: 18,
+    fontWeight: "900",
+    textAlign: "center",
+  },
+  emptyCopy: {
+    marginTop: 8,
+    color: agriPalette.inkSoft,
+    fontSize: 14,
+    lineHeight: 21,
+    textAlign: "center",
+  },
 });

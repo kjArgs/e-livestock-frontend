@@ -76,6 +76,10 @@ function LoginScreen() {
           ["role", result.user.account_type],
           ["first_name", result.user.first_name || ""],
           ["last_name", result.user.last_name || ""],
+          ["username", result.user.username || ""],
+          ["email", result.user.email || ""],
+          ["contact_number", result.user.contact_number || ""],
+          ["address", result.user.address || ""],
           ["account_id", String(result.user.account_id)],
           ["user", JSON.stringify(result.user)],
         ]);

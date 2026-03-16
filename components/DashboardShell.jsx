@@ -9,6 +9,7 @@ export default function DashboardShell({
   summary,
   children,
   contentContainerStyle,
+  refreshControl,
 }) {
   return (
     <View style={styles.screen}>
@@ -22,6 +23,7 @@ export default function DashboardShell({
 
         <ScrollView
           showsVerticalScrollIndicator={false}
+          refreshControl={refreshControl}
           contentContainerStyle={[styles.scrollContent, contentContainerStyle]}
         >
           <View style={styles.maxWidth}>

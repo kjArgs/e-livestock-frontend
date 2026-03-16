@@ -1,5 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import DateTimePicker from "@react-native-community/datetimepicker";
+import { BlurView } from "expo-blur";
 import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import {
@@ -195,6 +196,13 @@ export default function Appointment() {
       {/* CONFIRMATION MODAL */}
       <Modal transparent visible={confirmVisible} animationType="fade">
         <View style={styles.modalOverlay}>
+          <BlurView
+            intensity={32}
+            tint="dark"
+            experimentalBlurMethod="dimezisBlurView"
+            style={styles.blurBackdrop}
+          />
+          <View style={styles.modalTint} />
           <View style={styles.modalBox}>
             <Text style={styles.modalTitle}>Confirm Appointment?</Text>
             <Text style={styles.modalText}>
@@ -290,9 +298,15 @@ const styles = StyleSheet.create({
 
   modalOverlay: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.4)",
     justifyContent: "center",
     alignItems: "center",
+  },
+  blurBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  modalTint: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(0,0,0,0.28)",
   },
 
   modalBox: {
