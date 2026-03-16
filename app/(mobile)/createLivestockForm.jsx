@@ -17,7 +17,7 @@ import DateTimePickerModal from "react-native-modal-datetime-picker";
 import QRCode from "react-native-qrcode-svg";
 import AgriButton from "../../components/AgriButton";
 import DashboardShell from "../../components/DashboardShell";
-import { apiRoutes, apiUrl } from "../../lib/api";
+import { apiRoutes, apiUrl, parseJsonResponse } from "../../lib/api";
 import { agriPalette } from "../../constants/agriTheme";
 
 const BARANGAYS = [
@@ -110,20 +110,6 @@ function parseStoredAddress(address) {
     .filter(Boolean);
 
   return { barangay, city, province };
-}
-
-async function parseJsonResponse(response, fallbackMessage) {
-  const text = await response.text();
-
-  if (!text.trim()) {
-    throw new Error(fallbackMessage);
-  }
-
-  try {
-    return JSON.parse(text);
-  } catch (_error) {
-    throw new Error(fallbackMessage);
-  }
 }
 
 export default function AddLivestockForm() {

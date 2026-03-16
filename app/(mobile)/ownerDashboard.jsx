@@ -5,7 +5,7 @@ import { Alert, StyleSheet, Text, View } from "react-native";
 import AgriButton from "../../components/AgriButton";
 import DashboardShell from "../../components/DashboardShell";
 import StatCard from "../../components/StatCard";
-import { apiRoutes, apiUrl } from "../../lib/api";
+import { apiRoutes, apiUrl, parseJsonResponse } from "../../lib/api";
 import { agriPalette } from "../../constants/agriTheme";
 
 const API_URL = apiUrl(apiRoutes.owner.forms);
@@ -69,7 +69,10 @@ async function requestOwnerForms(session) {
     body: JSON.stringify(payload),
   });
 
-  return response.json();
+  return parseJsonResponse(
+    response,
+    `Owner dashboard API request failed (HTTP ${response.status}).`
+  );
 }
 
 export default function DashboardScreen() {

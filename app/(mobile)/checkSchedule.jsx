@@ -13,7 +13,7 @@ import {
 import AgriButton from "../../components/AgriButton";
 import DashboardShell from "../../components/DashboardShell";
 import StatCard from "../../components/StatCard";
-import { apiRoutes, apiUrl } from "../../lib/api";
+import { apiRoutes, apiUrl, parseJsonResponse } from "../../lib/api";
 import { agriPalette } from "../../constants/agriTheme";
 
 const API_URL = apiUrl(apiRoutes.owner.schedules);
@@ -142,7 +142,10 @@ async function requestSchedules(ownerAccountId) {
     }),
   });
 
-  return response.json();
+  return parseJsonResponse(
+    response,
+    `Schedule API request failed (HTTP ${response.status}).`
+  );
 }
 
 export default function ScheduleScreen() {
@@ -272,7 +275,10 @@ export default function ScheduleScreen() {
                 }),
               });
 
-              const data = await res.json();
+              const data = await parseJsonResponse(
+                res,
+                `Cancel schedule request failed (HTTP ${res.status}).`
+              );
 
               if (data.status === "success") {
                 setSchedules((prev) =>

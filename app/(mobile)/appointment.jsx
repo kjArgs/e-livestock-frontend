@@ -12,7 +12,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { apiRoutes, apiUrl } from "../../lib/api";
+import { apiRoutes, apiUrl, parseJsonResponse } from "../../lib/api";
 
 export default function Appointment() {
   const [formId, setFormId] = useState(null);
@@ -63,7 +63,10 @@ export default function Appointment() {
         }
       );
 
-      const data = await res.json();
+      const data = await parseJsonResponse(
+        res,
+        `Available slots request failed (HTTP ${res.status}).`
+      );
 
       if (data.status === "success") {
         let slots = data.available_slots;
@@ -115,7 +118,10 @@ export default function Appointment() {
         }
       );
 
-      const data = await res.json();
+      const data = await parseJsonResponse(
+        res,
+        `Create appointment request failed (HTTP ${res.status}).`
+      );
 
       if (data.status === "success") {
         Alert.alert(

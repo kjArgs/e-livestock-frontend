@@ -17,7 +17,7 @@ import AgriButton from "../../components/AgriButton";
 import DashboardShell from "../../components/DashboardShell";
 import FormDetailsModal from "../../components/FormDetailsModal";
 import StatCard from "../../components/StatCard";
-import { apiRoutes, apiUrl } from "../../lib/api";
+import { apiRoutes, apiUrl, parseJsonResponse } from "../../lib/api";
 import { agriPalette } from "../../constants/agriTheme";
 
 const API_URL = apiUrl(apiRoutes.owner.forms);
@@ -59,24 +59,6 @@ function scopeFormsToOwner(forms, session) {
   );
 }
 
-async function parseJsonResponse(response) {
-  const text = await response.text();
-
-  if (!text.trim()) {
-    throw new Error(
-      `Stockyard API returned an empty response (HTTP ${response.status}).`
-    );
-  }
-
-  try {
-    return JSON.parse(text);
-  } catch (_error) {
-    throw new Error(
-      `Stockyard API returned invalid JSON (HTTP ${response.status}).`
-    );
-  }
-}
-
 async function requestForms(session = null) {
   const accountId =
     session?.accountId ?? (await AsyncStorage.getItem("account_id"));
@@ -100,7 +82,10 @@ async function requestForms(session = null) {
     body: JSON.stringify(payload),
   });
 
-  return parseJsonResponse(response);
+  return parseJsonResponse(
+    response,
+    `Stockyard API request failed (HTTP ${response.status}).`
+  );
 }
 
 function isQRExpired(expirationDate, isExpiredFlag) {
