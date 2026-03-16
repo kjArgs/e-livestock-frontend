@@ -92,6 +92,39 @@ const createInitialFormData = (inspectorIssued = "") => ({
 
 const getDefaultExpiry = () =>
   new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString();
+const OWNER_SEARCH_URL = apiUrl(apiRoutes.profile.searchOwners);
+
+function normalizeLookupValue(value) {
+  return String(value || "")
+    .trim()
+    .replace(/\s+/g, " ")
+    .toLowerCase();
+}
+
+function parseStoredAddress(address) {
+  const [barangay = "", city = "Sipocot", province = "Camarines Sur"] = String(
+    address || ""
+  )
+    .split(",")
+    .map((part) => part.trim())
+    .filter(Boolean);
+
+  return { barangay, city, province };
+}
+
+async function parseJsonResponse(response, fallbackMessage) {
+  const text = await response.text();
+
+  if (!text.trim()) {
+    throw new Error(fallbackMessage);
+  }
+
+  try {
+    return JSON.parse(text);
+  } catch (_error) {
+    throw new Error(fallbackMessage);
+  }
+}
 
 export default function AddLivestockForm() {
   const router = useRouter();
@@ -112,6 +145,9 @@ export default function AddLivestockForm() {
   const [showNewFormButton, setShowNewFormButton] = useState(false);
   const [suggestions, setSuggestions] = useState([]);
   const [dssClicked, setDssClicked] = useState(false);
+  const [selectedOwner, setSelectedOwner] = useState(null);
+  const [ownerMatches, setOwnerMatches] = useState([]);
+  const [ownerLookupLoading, setOwnerLookupLoading] = useState(false);
 
   useEffect(() => {
     const loadAccountInfo = async () => {
@@ -137,8 +173,95 @@ export default function AddLivestockForm() {
     loadAccountInfo();
   }, []);
 
+  useEffect(() => {
+    if (submitted) {
+      setOwnerMatches([]);
+      setOwnerLookupLoading(false);
+      return undefined;
+    }
+
+    const query = normalizeLookupValue(formData.owner_name);
+    const selectedName = normalizeLookupValue(selectedOwner?.full_name);
+
+    if (query.length < 2 || (selectedOwner && query === selectedName)) {
+      setOwnerMatches([]);
+      setOwnerLookupLoading(false);
+      return undefined;
+    }
+
+    let active = true;
+
+    const timeoutId = setTimeout(async () => {
+      try {
+        setOwnerLookupLoading(true);
+        const response = await fetch(OWNER_SEARCH_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ query: formData.owner_name }),
+        });
+
+        const data = await parseJsonResponse(
+          response,
+          "Unable to search registered owners."
+        );
+
+        if (!active) {
+          return;
+        }
+
+        if (data.status === "success") {
+          setOwnerMatches(Array.isArray(data.users) ? data.users : []);
+        } else {
+          setOwnerMatches([]);
+        }
+      } catch (err) {
+        if (!active) {
+          return;
+        }
+
+        console.error("Owner search error:", err);
+        setOwnerMatches([]);
+      } finally {
+        if (active) {
+          setOwnerLookupLoading(false);
+        }
+      }
+    }, 250);
+
+    return () => {
+      active = false;
+      clearTimeout(timeoutId);
+    };
+  }, [formData.owner_name, selectedOwner, submitted]);
+
   const handleChange = (key, value) =>
     setFormData((prev) => ({ ...prev, [key]: value }));
+
+  const handleOwnerNameChange = (value) => {
+    setFormData((prev) => ({ ...prev, owner_name: value }));
+
+    if (
+      selectedOwner &&
+      normalizeLookupValue(selectedOwner.full_name) !==
+        normalizeLookupValue(value)
+    ) {
+      setSelectedOwner(null);
+    }
+  };
+
+  const handleOwnerSelect = (owner) => {
+    const parsedAddress = parseStoredAddress(owner.address);
+
+    setSelectedOwner(owner);
+    setOwnerMatches([]);
+    setFormData((prev) => ({
+      ...prev,
+      owner_name: owner.full_name || prev.owner_name,
+      owner_barangay: parsedAddress.barangay || prev.owner_barangay,
+      owner_city: parsedAddress.city || prev.owner_city,
+      owner_province: parsedAddress.province || prev.owner_province,
+    }));
+  };
 
   const openTimePicker = (key) => {
     setCurrentTimeKey(key);
@@ -193,6 +316,7 @@ export default function AddLivestockForm() {
             live_weight: formData.live_weight,
             purpose: formData.purpose,
             owner_name: formData.owner_name,
+            owner_account_id: selectedOwner?.account_id ?? null,
             owner_address: `${formData.owner_barangay}, ${formData.owner_city}, ${formData.owner_province}`,
             animal_origin: `${formData.animal_origin_barangay}, ${formData.animal_origin_city}, ${formData.animal_origin_province}`,
             animal_destination: formData.animal_destination,
@@ -217,13 +341,10 @@ export default function AddLivestockForm() {
         }
       );
 
-      const responseText = await response.text();
-      let data;
-      try {
-        data = JSON.parse(responseText);
-      } catch (_err) {
-        throw new Error("Invalid JSON response from API.");
-      }
+      const data = await parseJsonResponse(
+        response,
+        "Invalid JSON response from API."
+      );
 
       if (data.status === "success") {
         setQrValue(data.qr_code || "");
@@ -306,6 +427,9 @@ export default function AddLivestockForm() {
     setShowNewFormButton(false);
     setSubmitted(false);
     setDssClicked(false);
+    setSelectedOwner(null);
+    setOwnerMatches([]);
+    setOwnerLookupLoading(false);
   };
 
   const isEditable = !submitted;
@@ -473,8 +597,73 @@ export default function AddLivestockForm() {
             placeholderTextColor="#6F7C67"
             value={formData.owner_name}
             editable={isEditable}
-            onChangeText={(value) => handleChange("owner_name", value)}
+            onChangeText={handleOwnerNameChange}
           />
+
+          <Text style={styles.lookupHint}>
+            Type at least 2 letters to link a registered owner, or keep typing
+            for a manual name.
+          </Text>
+
+          {selectedOwner ? (
+            <View style={styles.ownerLinkedCard}>
+              <View style={styles.ownerLinkedInfo}>
+                <Text style={styles.ownerLinkedEyebrow}>Registered owner linked</Text>
+                <Text style={styles.ownerLinkedName}>{selectedOwner.full_name}</Text>
+                <Text style={styles.ownerLinkedMeta}>
+                  Account #{selectedOwner.account_id}
+                  {selectedOwner.email ? ` | ${selectedOwner.email}` : ""}
+                </Text>
+              </View>
+              {isEditable ? (
+                <TouchableOpacity onPress={() => setSelectedOwner(null)}>
+                  <Text style={styles.ownerLinkedAction}>Unlink</Text>
+                </TouchableOpacity>
+              ) : null}
+            </View>
+          ) : null}
+
+          {ownerLookupLoading ? (
+            <View style={styles.ownerLookupState}>
+              <ActivityIndicator size="small" color={agriPalette.field} />
+              <Text style={styles.ownerLookupText}>Searching registered owners...</Text>
+            </View>
+          ) : null}
+
+          {!selectedOwner && ownerMatches.length > 0 ? (
+            <View style={styles.ownerSuggestionList}>
+              {ownerMatches.map((owner) => (
+                <TouchableOpacity
+                  key={owner.account_id}
+                  style={styles.ownerSuggestionItem}
+                  onPress={() => handleOwnerSelect(owner)}
+                >
+                  <View style={styles.ownerSuggestionTextWrap}>
+                    <Text style={styles.ownerSuggestionName}>{owner.full_name}</Text>
+                    <Text style={styles.ownerSuggestionMeta}>
+                      Account #{owner.account_id}
+                      {owner.address ? ` | ${owner.address}` : ""}
+                    </Text>
+                  </View>
+                  <MaterialCommunityIcons
+                    name="arrow-top-right"
+                    size={18}
+                    color={agriPalette.field}
+                  />
+                </TouchableOpacity>
+              ))}
+            </View>
+          ) : null}
+
+          {!selectedOwner &&
+          !ownerLookupLoading &&
+          normalizeLookupValue(formData.owner_name).length >= 2 &&
+          ownerMatches.length === 0 ? (
+            <Text style={styles.lookupEmptyText}>
+              No registered owner matched this name yet. You can still continue
+              with a manual owner entry.
+            </Text>
+          ) : null}
 
           <View style={[styles.formRow, isTablet && styles.formRowWide]}>
             <View style={styles.formCol}>
@@ -829,6 +1018,101 @@ const styles = StyleSheet.create({
     backgroundColor: "#FCFAF4",
     color: agriPalette.ink,
     fontSize: 15,
+  },
+  lookupHint: {
+    marginTop: 8,
+    color: agriPalette.inkSoft,
+    fontSize: 13,
+    lineHeight: 19,
+  },
+  ownerLinkedCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+    marginTop: 12,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: agriPalette.border,
+    backgroundColor: "#F4F7EE",
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  ownerLinkedInfo: {
+    flex: 1,
+  },
+  ownerLinkedEyebrow: {
+    color: agriPalette.field,
+    fontSize: 11,
+    fontWeight: "800",
+    textTransform: "uppercase",
+    letterSpacing: 1,
+  },
+  ownerLinkedName: {
+    marginTop: 6,
+    color: agriPalette.ink,
+    fontSize: 16,
+    fontWeight: "900",
+  },
+  ownerLinkedMeta: {
+    marginTop: 4,
+    color: agriPalette.inkSoft,
+    fontSize: 12,
+    lineHeight: 18,
+  },
+  ownerLinkedAction: {
+    color: agriPalette.redClay,
+    fontSize: 13,
+    fontWeight: "800",
+  },
+  ownerLookupState: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginTop: 12,
+  },
+  ownerLookupText: {
+    color: agriPalette.field,
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  ownerSuggestionList: {
+    marginTop: 12,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: agriPalette.border,
+    backgroundColor: agriPalette.surface,
+    overflow: "hidden",
+  },
+  ownerSuggestionItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: agriPalette.border,
+  },
+  ownerSuggestionTextWrap: {
+    flex: 1,
+  },
+  ownerSuggestionName: {
+    color: agriPalette.ink,
+    fontSize: 15,
+    fontWeight: "800",
+  },
+  ownerSuggestionMeta: {
+    marginTop: 4,
+    color: agriPalette.inkSoft,
+    fontSize: 12,
+    lineHeight: 18,
+  },
+  lookupEmptyText: {
+    marginTop: 12,
+    color: agriPalette.inkSoft,
+    fontSize: 13,
+    lineHeight: 19,
   },
   remarks: {
     minHeight: 110,

@@ -31,6 +31,52 @@ function normalizeFullName(value) {
     .toLowerCase();
 }
 
+function matchesOwnerName(ownerName, firstName, lastName) {
+  const normalizedOwner = normalizeFullName(ownerName);
+  const normalizedFirst = normalizeFullName(firstName);
+  const normalizedLast = normalizeFullName(lastName);
+
+  if (!normalizedFirst && !normalizedLast) {
+    return true;
+  }
+
+  return (
+    (!normalizedFirst || normalizedOwner.includes(normalizedFirst)) &&
+    (!normalizedLast || normalizedOwner.includes(normalizedLast))
+  );
+}
+
+function scopeFormsToOwner(forms, session) {
+  const records = Array.isArray(forms) ? forms : [];
+  const accountId = Number.parseInt(session.accountId || "", 10);
+
+  if (accountId > 0) {
+    return records;
+  }
+
+  return records.filter((form) =>
+    matchesOwnerName(form.owner_name, session.firstName, session.lastName)
+  );
+}
+
+async function parseJsonResponse(response) {
+  const text = await response.text();
+
+  if (!text.trim()) {
+    throw new Error(
+      `Stockyard API returned an empty response (HTTP ${response.status}).`
+    );
+  }
+
+  try {
+    return JSON.parse(text);
+  } catch (_error) {
+    throw new Error(
+      `Stockyard API returned invalid JSON (HTTP ${response.status}).`
+    );
+  }
+}
+
 async function requestForms(session = null) {
   const accountId =
     session?.accountId ?? (await AsyncStorage.getItem("account_id"));
@@ -54,7 +100,7 @@ async function requestForms(session = null) {
     body: JSON.stringify(payload),
   });
 
-  return response.json();
+  return parseJsonResponse(response);
 }
 
 function isQRExpired(expirationDate, isExpiredFlag) {
@@ -117,6 +163,7 @@ export default function Stockyard() {
   const [statusFilter, setStatusFilter] = useState("All");
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedForm, setSelectedForm] = useState(null);
   const [firstName, setFirstName] = useState("");
@@ -146,19 +193,26 @@ export default function Stockyard() {
         });
 
         if (data.status === "success") {
-          const fullName = normalizeFullName(
-            `${storedFirstName || ""} ${lastNameValue || ""}`
-          );
-          const nextForms = (data.forms || []).filter(
-            (form) => !fullName || normalizeFullName(form.owner_name) === fullName
-          );
+          const nextForms = scopeFormsToOwner(data.forms, {
+            accountId,
+            firstName: storedFirstName,
+            lastName: lastNameValue,
+          });
           setForms(nextForms);
+          setLoadError("");
         } else {
           setForms([]);
+          setLoadError(
+            data.message && data.message !== "No forms found"
+              ? data.message
+              : ""
+          );
         }
       } catch (err) {
         console.error(err);
+        setLoadError(err.message || "Failed to load your stockyard records.");
         Alert.alert("Error", "Failed to load your stockyard records.");
+      } finally {
         setLoading(false);
         setRefreshing(false);
       }
@@ -195,26 +249,33 @@ export default function Stockyard() {
       if (!refreshing) {
         setLoading(true);
       }
+      setLoadError("");
 
       const data = await requestForms(session);
       const sessionFirstName =
         session?.firstName ?? (await AsyncStorage.getItem("first_name"));
       const sessionLastName =
         session?.lastName ?? (await AsyncStorage.getItem("last_name"));
-      const fullName = normalizeFullName(
-        `${sessionFirstName || ""} ${sessionLastName || ""}`
-      );
+      const sessionAccountId =
+        session?.accountId ?? (await AsyncStorage.getItem("account_id"));
 
       if (data.status === "success") {
-        const nextForms = (data.forms || []).filter(
-          (form) => !fullName || normalizeFullName(form.owner_name) === fullName
-        );
+        const nextForms = scopeFormsToOwner(data.forms, {
+          accountId: sessionAccountId,
+          firstName: sessionFirstName,
+          lastName: sessionLastName,
+        });
         setForms(nextForms);
+        setLoadError("");
       } else {
         setForms([]);
+        setLoadError(
+          data.message && data.message !== "No forms found" ? data.message : ""
+        );
       }
     } catch (err) {
       console.error(err);
+      setLoadError(err.message || "Failed to fetch forms.");
       Alert.alert("Error", "Failed to fetch forms.");
     } finally {
       setLoading(false);
@@ -377,6 +438,17 @@ export default function Stockyard() {
             Open full details, inspect QR validity at a glance, and create a
             schedule directly from each eligible record.
           </Text>
+
+          {!!loadError && !loading && (
+            <View style={styles.errorPanel}>
+              <MaterialCommunityIcons
+                name="alert-circle-outline"
+                size={18}
+                color={agriPalette.redClay}
+              />
+              <Text style={styles.errorPanelText}>{loadError}</Text>
+            </View>
+          )}
 
           {loading ? (
             <ActivityIndicator
@@ -865,5 +937,24 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 21,
     textAlign: "center",
+  },
+  errorPanel: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginTop: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderRadius: 18,
+    backgroundColor: "#F7E1D5",
+    borderWidth: 1,
+    borderColor: "#E6BEA9",
+  },
+  errorPanelText: {
+    flex: 1,
+    color: agriPalette.redClay,
+    fontSize: 13,
+    fontWeight: "700",
+    lineHeight: 19,
   },
 });

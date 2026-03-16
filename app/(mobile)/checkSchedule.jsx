@@ -55,6 +55,38 @@ function normalizeFullName(value) {
     .toLowerCase();
 }
 
+function matchesOwnerName(ownerName, firstName, lastName) {
+  const normalizedOwner = normalizeFullName(ownerName);
+  const normalizedFirst = normalizeFullName(firstName);
+  const normalizedLast = normalizeFullName(lastName);
+
+  if (!normalizedFirst && !normalizedLast) {
+    return true;
+  }
+
+  return (
+    (!normalizedFirst || normalizedOwner.includes(normalizedFirst)) &&
+    (!normalizedLast || normalizedOwner.includes(normalizedLast))
+  );
+}
+
+function scopeSchedulesToOwner(schedules, session) {
+  const records = Array.isArray(schedules) ? schedules : [];
+  const accountId = Number.parseInt(session.accountId || "", 10);
+
+  if (accountId > 0) {
+    return records;
+  }
+
+  return records.filter((schedule) =>
+    matchesOwnerName(
+      schedule.owner_name,
+      session.firstName,
+      session.lastName
+    )
+  );
+}
+
 function formatScheduleDate(dateValue) {
   if (!dateValue) {
     return "Date not set";
@@ -165,14 +197,11 @@ export default function ScheduleScreen() {
           ]);
 
           if (data.status === "success") {
-            const fullName = normalizeFullName(
-              `${storedFirstName || ""} ${storedLastName || ""}`
-            );
-            const nextSchedules = (data.schedules || []).filter(
-              (schedule) =>
-                !fullName ||
-                normalizeFullName(schedule.owner_name) === fullName
-            );
+            const nextSchedules = scopeSchedulesToOwner(data.schedules, {
+              accountId,
+              firstName: storedFirstName,
+              lastName: storedLastName,
+            });
             setSchedules(nextSchedules);
           } else {
             setSchedules([]);
@@ -203,15 +232,13 @@ export default function ScheduleScreen() {
         AsyncStorage.getItem("first_name"),
         AsyncStorage.getItem("last_name"),
       ]);
-      const fullName = normalizeFullName(
-        `${storedFirst || ""} ${storedLast || ""}`
-      );
 
       if (data.status === "success") {
-        const nextSchedules = (data.schedules || []).filter(
-          (schedule) =>
-            !fullName || normalizeFullName(schedule.owner_name) === fullName
-        );
+        const nextSchedules = scopeSchedulesToOwner(data.schedules, {
+          accountId: ownerAccountId,
+          firstName: storedFirst,
+          lastName: storedLast,
+        });
         setSchedules(nextSchedules);
       } else {
         setSchedules([]);

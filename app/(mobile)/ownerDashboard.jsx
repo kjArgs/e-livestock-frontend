@@ -25,6 +25,34 @@ function normalizeFullName(value) {
     .toLowerCase();
 }
 
+function matchesOwnerName(ownerName, firstName, lastName) {
+  const normalizedOwner = normalizeFullName(ownerName);
+  const normalizedFirst = normalizeFullName(firstName);
+  const normalizedLast = normalizeFullName(lastName);
+
+  if (!normalizedFirst && !normalizedLast) {
+    return true;
+  }
+
+  return (
+    (!normalizedFirst || normalizedOwner.includes(normalizedFirst)) &&
+    (!normalizedLast || normalizedOwner.includes(normalizedLast))
+  );
+}
+
+function scopeOwnerForms(forms, session) {
+  const records = Array.isArray(forms) ? forms : [];
+  const accountId = Number.parseInt(session.accountId || "", 10);
+
+  if (accountId > 0) {
+    return records;
+  }
+
+  return records.filter((form) =>
+    matchesOwnerName(form.owner_name, session.firstName, session.lastName)
+  );
+}
+
 async function requestOwnerForms(session) {
   const payload = {
     first_name: session.firstName || "",
@@ -77,13 +105,11 @@ export default function DashboardScreen() {
         });
 
         if (data.status === "success") {
-          const fullName = normalizeFullName(
-            `${storedFirstName || ""} ${storedLastName || ""}`
-          );
-          const forms = (Array.isArray(data.forms) ? data.forms : []).filter(
-            (form) =>
-              !fullName || normalizeFullName(form.owner_name) === fullName
-          );
+          const forms = scopeOwnerForms(data.forms, {
+            firstName: storedFirstName,
+            lastName: storedLastName,
+            accountId: storedAccountId,
+          });
           const expired = forms.filter((form) =>
             isFormExpired(form.qr_expiration)
           ).length;
