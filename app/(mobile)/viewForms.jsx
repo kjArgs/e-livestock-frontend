@@ -13,10 +13,10 @@ import {
 import AgriButton from "../../components/AgriButton";
 import DashboardShell from "../../components/DashboardShell";
 import FormDetailsModal from "../../components/FormDetailsModal";
+import { apiRoutes, apiUrl } from "../../lib/api";
 import { agriPalette } from "../../constants/agriTheme";
 
-const API_URL =
-  "https://e-livestock.tulongkabataanbicol.com/eLiveStockAPI/API/get_forms.php";
+const API_URL = apiUrl(apiRoutes.inspector.forms);
 
 const FILTER_OPTIONS = [
   { value: "all", label: "All Forms", icon: "file-cabinet" },
@@ -120,7 +120,7 @@ export default function ViewForms() {
   const viewFormDetails = async (formId) => {
     try {
       const response = await fetch(
-        "https://e-livestock.tulongkabataanbicol.com/eLiveStockAPI/API/get_form_details.php",
+        apiUrl(apiRoutes.inspector.formDetails),
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },

@@ -5,10 +5,10 @@ import { Alert, StyleSheet, Text, View } from "react-native";
 import { TextInput } from "react-native-paper";
 import AgriButton from "../../components/AgriButton";
 import AuthRecoveryShell from "../../components/AuthRecoveryShell";
+import { apiRoutes, apiUrl } from "../../lib/api";
 import { agriPalette } from "../../constants/agriTheme";
 
-const VERIFY_OTP_URL =
-  "https://e-livestock.tulongkabataanbicol.com/eLiveStockAPI/API/verify_otp.php";
+const VERIFY_OTP_URL = apiUrl(apiRoutes.auth.verifyOtp);
 
 function getParamValue(value) {
   return Array.isArray(value) ? value[0] || "" : value || "";

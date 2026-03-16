@@ -11,9 +11,9 @@ import {
   View,
 } from "react-native";
 import QRCode from "react-native-qrcode-svg";
+import { apiRoutes, apiUrl } from "../../lib/api";
 
-const VERIFY_URL =
-  "https://e-livestock.tulongkabataanbicol.com/eLiveStockAPI/API/verify_qr.php";
+const VERIFY_URL = apiUrl(apiRoutes.antemortem.verifyQr);
 
 export default function AntemortemScanQRcode() {
   const router = useRouter();

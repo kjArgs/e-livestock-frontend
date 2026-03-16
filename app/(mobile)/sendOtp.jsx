@@ -5,10 +5,10 @@ import { Alert, StyleSheet, Text, View } from "react-native";
 import { TextInput } from "react-native-paper";
 import AgriButton from "../../components/AgriButton";
 import AuthRecoveryShell from "../../components/AuthRecoveryShell";
+import { apiRoutes, apiUrl } from "../../lib/api";
 import { agriPalette } from "../../constants/agriTheme";
 
-const API_SEND_OTP =
-  "https://e-livestock.tulongkabataanbicol.com/eLiveStockAPI/API/send_otp.php";
+const API_SEND_OTP = apiUrl(apiRoutes.auth.sendOtp);
 
 export default function SendOtp() {
   const router = useRouter();

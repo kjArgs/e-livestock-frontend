@@ -21,10 +21,10 @@ import {
   useTheme,
 } from "react-native-paper";
 import AgriButton from "../components/AgriButton";
+import { apiRoutes, apiUrl } from "../lib/api";
 import { agriPalette, agriPaperTheme } from "../constants/agriTheme";
 
-const API_URL =
-  "https://e-livestock.tulongkabataanbicol.com/eLiveStockAPI/API/logIn.php";
+const API_URL = apiUrl(apiRoutes.auth.login);
 
 export default function Login() {
   return (

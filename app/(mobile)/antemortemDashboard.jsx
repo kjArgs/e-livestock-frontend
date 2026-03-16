@@ -5,6 +5,7 @@ import { Alert, StyleSheet, Text, View } from "react-native";
 import AgriButton from "../../components/AgriButton";
 import DashboardShell from "../../components/DashboardShell";
 import StatCard from "../../components/StatCard";
+import { apiRoutes, apiUrl } from "../../lib/api";
 import { agriPalette } from "../../constants/agriTheme";
 
 export default function DashboardScreen() {
@@ -22,7 +23,7 @@ export default function DashboardScreen() {
 
     try {
       const response = await fetch(
-        "https://e-livestock.tulongkabataanbicol.com/eLiveStockAPI/API/get_antemortem_analytics.php"
+        apiUrl(apiRoutes.antemortem.analytics)
       );
 
       const result = await response.json();

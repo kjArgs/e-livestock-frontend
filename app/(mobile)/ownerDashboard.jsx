@@ -5,10 +5,10 @@ import { Alert, StyleSheet, Text, View } from "react-native";
 import AgriButton from "../../components/AgriButton";
 import DashboardShell from "../../components/DashboardShell";
 import StatCard from "../../components/StatCard";
+import { apiRoutes, apiUrl } from "../../lib/api";
 import { agriPalette } from "../../constants/agriTheme";
 
-const API_URL =
-  "https://e-livestock.tulongkabataanbicol.com/eLiveStockAPI/API/get_user_form.php";
+const API_URL = apiUrl(apiRoutes.owner.forms);
 
 function isFormExpired(expirationDate) {
   if (!expirationDate) {

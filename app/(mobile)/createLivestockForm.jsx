@@ -17,6 +17,7 @@ import DateTimePickerModal from "react-native-modal-datetime-picker";
 import QRCode from "react-native-qrcode-svg";
 import AgriButton from "../../components/AgriButton";
 import DashboardShell from "../../components/DashboardShell";
+import { apiRoutes, apiUrl } from "../../lib/api";
 import { agriPalette } from "../../constants/agriTheme";
 
 const BARANGAYS = [
@@ -205,7 +206,7 @@ export default function AddLivestockForm() {
 
       const token = await AsyncStorage.getItem("token");
       const response = await fetch(
-        "https://e-livestock.tulongkabataanbicol.com/eLiveStockAPI/API/create_form.php",
+        apiUrl(apiRoutes.inspector.createForm),
         {
           method: "POST",
           headers: {
@@ -250,7 +251,7 @@ export default function AddLivestockForm() {
 
     try {
       const response = await fetch(
-        "https://e-livestock.tulongkabataanbicol.com/eLiveStockAPI/API/check_suggestion.php",
+        apiUrl(apiRoutes.inspector.suggestions),
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },

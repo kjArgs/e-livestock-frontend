@@ -12,6 +12,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { apiRoutes, apiUrl } from "../../lib/api";
 
 export default function Appointment() {
   const [formId, setFormId] = useState(null);
@@ -54,7 +55,7 @@ export default function Appointment() {
       const selectedDay = date.toISOString().split("T")[0];
 
       const res = await fetch(
-        "https://e-livestock.tulongkabataanbicol.com/eLiveStockAPI/API/get_appointments.php",
+        apiUrl(apiRoutes.appointments.available),
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -98,7 +99,7 @@ export default function Appointment() {
 
     try {
       const res = await fetch(
-        "https://e-livestock.tulongkabataanbicol.com/eLiveStockAPI/API/create_appointments.php",
+        apiUrl(apiRoutes.appointments.create),
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },

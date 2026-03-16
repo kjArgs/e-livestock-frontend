@@ -5,12 +5,11 @@ import { Alert, StyleSheet, Text, View } from "react-native";
 import { TextInput } from "react-native-paper";
 import AgriButton from "../../components/AgriButton";
 import DashboardShell from "../../components/DashboardShell";
+import { apiRoutes, apiUrl } from "../../lib/api";
 import { agriPalette } from "../../constants/agriTheme";
 
-const INFO_API =
-  "https://e-livestock.tulongkabataanbicol.com/eLiveStockAPI/API/get_user_info.php";
-const UPDATE_API =
-  "https://e-livestock.tulongkabataanbicol.com/eLiveStockAPI/API/update_user.php";
+const INFO_API = apiUrl(apiRoutes.profile.info);
+const UPDATE_API = apiUrl(apiRoutes.profile.update);
 
 const SETTINGS_META = {
   user: {

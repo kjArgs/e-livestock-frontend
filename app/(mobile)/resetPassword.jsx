@@ -5,10 +5,10 @@ import { Alert, StyleSheet, Text, View } from "react-native";
 import { TextInput } from "react-native-paper";
 import AgriButton from "../../components/AgriButton";
 import AuthRecoveryShell from "../../components/AuthRecoveryShell";
+import { apiRoutes, apiUrl } from "../../lib/api";
 import { agriPalette } from "../../constants/agriTheme";
 
-const API_RESET_PASSWORD =
-  "https://e-livestock.tulongkabataanbicol.com/eLiveStockAPI/API/reset_password.php";
+const API_RESET_PASSWORD = apiUrl(apiRoutes.auth.resetPassword);
 
 function getParamValue(value) {
   return Array.isArray(value) ? value[0] || "" : value || "";

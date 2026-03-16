@@ -15,25 +15,20 @@ import {
 import AgriButton from "../../components/AgriButton";
 import DashboardShell from "../../components/DashboardShell";
 import StatCard from "../../components/StatCard";
+import { apiRoutes, apiUrl } from "../../lib/api";
 import { agriPalette } from "../../constants/agriTheme";
 
 const API_ENDPOINTS = {
-  pending:
-    "https://e-livestock.tulongkabataanbicol.com/eLiveStockAPI/API/get_pending_schedules.php",
-  accepted:
-    "https://e-livestock.tulongkabataanbicol.com/eLiveStockAPI/API/get_accepted_schedules.php",
-  ongoing:
-    "https://e-livestock.tulongkabataanbicol.com/eLiveStockAPI/API/get_ongoing_schedules.php",
-  done: "https://e-livestock.tulongkabataanbicol.com/eLiveStockAPI/API/get_done_schedules.php",
-  cancelled:
-    "https://e-livestock.tulongkabataanbicol.com/eLiveStockAPI/API/get_cancelled_schedules.php",
+  pending: apiUrl(apiRoutes.antemortem.schedules.pending),
+  accepted: apiUrl(apiRoutes.antemortem.schedules.accepted),
+  ongoing: apiUrl(apiRoutes.antemortem.schedules.ongoing),
+  done: apiUrl(apiRoutes.antemortem.schedules.done),
+  cancelled: apiUrl(apiRoutes.antemortem.schedules.cancelled),
 };
 
-const UPDATE_URL =
-  "https://e-livestock.tulongkabataanbicol.com/eLiveStockAPI/API/update_schedule_status.php";
+const UPDATE_URL = apiUrl(apiRoutes.antemortem.updateScheduleStatus);
 
-const CANCEL_URL =
-  "https://e-livestock.tulongkabataanbicol.com/eLiveStockAPI/API/cancel_antemortem_schedules.php";
+const CANCEL_URL = apiUrl(apiRoutes.antemortem.cancelSchedule);
 
 const STATUS_ORDER = ["pending", "accepted", "ongoing", "done", "cancelled"];
 

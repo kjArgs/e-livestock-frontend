@@ -20,12 +20,11 @@ import {
   useTheme,
 } from "react-native-paper";
 import AgriButton from "../../components/AgriButton";
+import { apiRoutes, apiUrl } from "../../lib/api";
 import { agriPaperTheme, agriPalette } from "../../constants/agriTheme";
 
-const API_URL =
-  "https://e-livestock.tulongkabataanbicol.com/eLiveStockAPI/API/register.php";
-const API_SEND_OTP =
-  "https://e-livestock.tulongkabataanbicol.com/eLiveStockAPI/API/send_otp.php";
+const API_URL = apiUrl(apiRoutes.auth.register);
+const API_SEND_OTP = apiUrl(apiRoutes.auth.sendOtp);
 
 export default function Register() {
   return (
