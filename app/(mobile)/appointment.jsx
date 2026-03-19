@@ -1,126 +1,333 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import DateTimePicker from "@react-native-community/datetimepicker";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { BlurView } from "expo-blur";
 import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import {
+  ActivityIndicator,
   Alert,
-  FlatList,
   Modal,
+  Pressable,
   StyleSheet,
   Text,
-  TouchableOpacity,
+  useWindowDimensions,
   View,
 } from "react-native";
+import AgriButton from "../../components/AgriButton";
+import DashboardShell from "../../components/DashboardShell";
+import StatCard from "../../components/StatCard";
+import { agriPalette } from "../../constants/agriTheme";
 import { apiRoutes, apiUrl, parseJsonResponse } from "../../lib/api";
 
+function parseDateOnly(value) {
+  if (!value) return null;
+  const parsed = new Date(`${value}T00:00:00`);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+function toApiDate(dateValue) {
+  const year = dateValue.getFullYear();
+  const month = String(dateValue.getMonth() + 1).padStart(2, "0");
+  const day = String(dateValue.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function formatDateLabel(value) {
+  const parsed =
+    value instanceof Date
+      ? value
+      : typeof value === "string"
+      ? parseDateOnly(value)
+      : null;
+
+  if (!parsed) {
+    return typeof value === "string" && value ? value : "Date not available";
+  }
+
+  return parsed.toLocaleDateString(undefined, {
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
+function formatShortDate(value) {
+  const parsed = value instanceof Date ? value : parseDateOnly(value);
+  if (!parsed) return "TBD";
+
+  return parsed.toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+  });
+}
+
+function formatTimeLabel(timeValue) {
+  if (!timeValue) return "Time pending";
+  const parsed = new Date(`1970-01-01T${timeValue}`);
+  if (Number.isNaN(parsed.getTime())) return timeValue;
+
+  return parsed.toLocaleTimeString([], {
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
+function formatSlotRange(slot) {
+  return `${formatTimeLabel(slot?.[0])} - ${formatTimeLabel(slot?.[1])}`;
+}
+
+function getSlotBucket(startTime) {
+  const hour = Number.parseInt(String(startTime || "").slice(0, 2), 10);
+  if (Number.isNaN(hour)) return "Open slot";
+  if (hour < 12) return "Morning";
+  if (hour < 17) return "Afternoon";
+  return "Late day";
+}
+
+function getPermitSummary(expirationDate) {
+  const parsed = parseDateOnly(expirationDate);
+  if (!parsed) {
+    return { value: "TBD", caption: "Permit expiry is not available yet." };
+  }
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const diffDays = Math.ceil((parsed - today) / (1000 * 60 * 60 * 24));
+
+  if (diffDays < 0) {
+    return { value: "Expired", caption: "This permit is already past its booking window." };
+  }
+  if (diffDays === 0) {
+    return { value: "Today", caption: "Permit booking closes today." };
+  }
+
+  return {
+    value: `${diffDays}d`,
+    caption: `Book on or before ${formatDateLabel(parsed)}.`,
+  };
+}
+
+function getSlotPalette(startTime) {
+  const bucket = getSlotBucket(startTime);
+
+  if (bucket === "Morning") {
+    return {
+      background: "#FFF7E0",
+      border: "#E7D29B",
+      badgeBackground: "#F8E8B5",
+      badgeText: "#896310",
+      icon: "weather-sunset-up",
+    };
+  }
+
+  if (bucket === "Afternoon") {
+    return {
+      background: "#EEF6EA",
+      border: "#C9DBBE",
+      badgeBackground: "#DDEBD6",
+      badgeText: agriPalette.fieldDeep,
+      icon: "weather-sunny",
+    };
+  }
+
+  return {
+    background: "#E8EFF4",
+    border: "#C8D7E3",
+    badgeBackground: "#D6E3EC",
+    badgeText: "#315E8F",
+    icon: "weather-night",
+  };
+}
+
+async function requestAvailableSlots(dateValue) {
+  const selectedDay = toApiDate(dateValue);
+  const response = await fetch(apiUrl(apiRoutes.appointments.available), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ date: selectedDay }),
+  });
+
+  const data = await parseJsonResponse(
+    response,
+    `Available slots request failed (HTTP ${response.status}).`
+  );
+
+  if (data.status !== "success") {
+    return [];
+  }
+
+  let slots = Array.isArray(data.available_slots) ? data.available_slots : [];
+  const today = new Date();
+
+  if (selectedDay === toApiDate(today)) {
+    const currentMinutes = today.getHours() * 60 + today.getMinutes();
+
+    slots = slots.filter((slot) => {
+      const [hour, minute] = String(slot?.[0] || "").split(":");
+      const slotMinutes =
+        Number.parseInt(hour || "", 10) * 60 +
+        Number.parseInt(minute || "0", 10);
+
+      return Number.isFinite(slotMinutes) && slotMinutes >= currentMinutes;
+    });
+  }
+
+  return slots;
+}
+
 export default function Appointment() {
+  const router = useRouter();
+  const { width } = useWindowDimensions();
+  const isWide = width >= 920;
+
   const [formId, setFormId] = useState(null);
   const [ownerName, setOwnerName] = useState("");
   const [eartagNumber, setEartagNumber] = useState("");
   const [location, setLocation] = useState("");
   const [expirationDate, setExpirationDate] = useState("");
-
   const [availableSlots, setAvailableSlots] = useState([]);
-
+  const [loadingSlots, setLoadingSlots] = useState(true);
+  const [booking, setBooking] = useState(false);
   const [date, setDate] = useState(new Date());
   const [showPicker, setShowPicker] = useState(false);
-
-  // Modal
   const [selectedSlot, setSelectedSlot] = useState(null);
   const [confirmVisible, setConfirmVisible] = useState(false);
 
-  const router = useRouter();
-
-  // Load stored form data
   useEffect(() => {
+    let active = true;
+
     const loadData = async () => {
-      setFormId(parseInt(await AsyncStorage.getItem("selected_form_id"), 10));
-      setOwnerName(await AsyncStorage.getItem("selected_form_owner"));
-      setEartagNumber(await AsyncStorage.getItem("selected_form_eartag"));
-      setLocation(await AsyncStorage.getItem("selected_form_address"));
-      setExpirationDate(await AsyncStorage.getItem("selected_form_expiration"));
+      try {
+        const [storedFormId, storedOwner, storedEartag, storedAddress, storedExpiration] =
+          await Promise.all([
+            AsyncStorage.getItem("selected_form_id"),
+            AsyncStorage.getItem("selected_form_owner"),
+            AsyncStorage.getItem("selected_form_eartag"),
+            AsyncStorage.getItem("selected_form_address"),
+            AsyncStorage.getItem("selected_form_expiration"),
+          ]);
+
+        if (!active) return;
+
+        const parsedFormId = Number.parseInt(storedFormId || "", 10);
+        setFormId(Number.isNaN(parsedFormId) ? null : parsedFormId);
+        setOwnerName(storedOwner || "");
+        setEartagNumber(storedEartag || "");
+        setLocation(storedAddress || "");
+        setExpirationDate(storedExpiration || "");
+      } catch (error) {
+        console.error(error);
+        if (active) {
+          Alert.alert("Error", "Unable to load permit details.");
+        }
+      }
     };
+
     loadData();
+    return () => {
+      active = false;
+    };
   }, []);
 
-  // Fetch slots when date changes
+  const minDate = new Date();
+  minDate.setHours(0, 0, 0, 0);
+  const parsedExpirationDate = parseDateOnly(expirationDate);
+  const maxDate =
+    parsedExpirationDate && parsedExpirationDate >= minDate
+      ? parsedExpirationDate
+      : minDate;
+
   useEffect(() => {
-    fetchAvailableSlots();
+    if (date > maxDate) {
+      setDate(maxDate);
+    }
+  }, [date, maxDate]);
+
+  useEffect(() => {
+    let active = true;
+
+    const loadSlots = async () => {
+      try {
+        setLoadingSlots(true);
+        const slots = await requestAvailableSlots(date);
+        if (active) {
+          setAvailableSlots(slots);
+        }
+      } catch (error) {
+        console.error(error);
+        if (active) {
+          setAvailableSlots([]);
+          Alert.alert("Error", "Unable to fetch available slots.");
+        }
+      } finally {
+        if (active) {
+          setLoadingSlots(false);
+        }
+      }
+    };
+
+    loadSlots();
+    return () => {
+      active = false;
+    };
   }, [date]);
 
-  const fetchAvailableSlots = async () => {
+  const refreshSlots = async () => {
     try {
-      const today = new Date();
-      const selectedDay = date.toISOString().split("T")[0];
-
-      const res = await fetch(
-        apiUrl(apiRoutes.appointments.available),
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ date: selectedDay }),
-        }
-      );
-
-      const data = await parseJsonResponse(
-        res,
-        `Available slots request failed (HTTP ${res.status}).`
-      );
-
-      if (data.status === "success") {
-        let slots = data.available_slots;
-
-        // ⏳ Filter out past time slots for today
-        if (selectedDay === today.toISOString().split("T")[0]) {
-          const currentHour = today.getHours();
-          slots = slots.filter((slot) => {
-            const slotHour = parseInt(slot[0].slice(0, 2));
-            return slotHour >= currentHour;
-          });
-        }
-
-        setAvailableSlots(slots);
-      } else {
-        setAvailableSlots([]);
-      }
-    } catch (err) {
-      console.error(err);
-      Alert.alert("Error", "Unable to fetch slots.");
+      setLoadingSlots(true);
+      const slots = await requestAvailableSlots(date);
+      setAvailableSlots(slots);
+    } catch (error) {
+      console.error(error);
+      setAvailableSlots([]);
+      Alert.alert("Error", "Unable to fetch available slots.");
+    } finally {
+      setLoadingSlots(false);
     }
   };
 
-  // CONFIRM MODAL OPEN
   const openConfirmation = (slot) => {
+    if (!formId) {
+      Alert.alert(
+        "Permit not ready",
+        "Open booking from the stockyard so it stays linked to the correct livestock form."
+      );
+      return;
+    }
+
     setSelectedSlot(slot);
     setConfirmVisible(true);
   };
 
-  // SEND APPOINTMENT
   const bookSlot = async () => {
+    if (!selectedSlot || !formId) {
+      setConfirmVisible(false);
+      Alert.alert("Missing details", "Pick a valid slot before booking.");
+      return;
+    }
+
     setConfirmVisible(false);
+    setBooking(true);
 
     try {
-      const res = await fetch(
-        apiUrl(apiRoutes.appointments.create),
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            form_id: formId,
-            owner_name: ownerName,
-            eartag_number: eartagNumber,
-            location,
-            date: date.toISOString().split("T")[0],
-            start_time: selectedSlot[0],
-            end_time: selectedSlot[1],
-          }),
-        }
-      );
+      const response = await fetch(apiUrl(apiRoutes.appointments.create), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          form_id: formId,
+          owner_name: ownerName,
+          eartag_number: eartagNumber,
+          location,
+          date: toApiDate(date),
+          start_time: selectedSlot[0],
+          end_time: selectedSlot[1],
+        }),
+      });
 
       const data = await parseJsonResponse(
-        res,
-        `Create appointment request failed (HTTP ${res.status}).`
+        response,
+        `Create appointment request failed (HTTP ${response.status}).`
       );
 
       if (data.status === "success") {
@@ -134,179 +341,620 @@ export default function Appointment() {
       } else {
         Alert.alert("Error", data.message || "Failed to create appointment");
       }
-    } catch (err) {
-      console.error(err);
+    } catch (error) {
+      console.error(error);
       Alert.alert("Error", "Network error");
+    } finally {
+      setBooking(false);
     }
   };
 
-  // LIMIT DATE PICKER TO EXPIRATION DATE
-  const minDate = new Date();
-  const maxDate = expirationDate ? new Date(expirationDate) : new Date();
+  const permitSummary = getPermitSummary(expirationDate);
+  const nextSlot = availableSlots[0] || null;
+  const morningCount = availableSlots.filter(
+    (slot) => getSlotBucket(slot?.[0]) === "Morning"
+  ).length;
+  const afternoonCount = availableSlots.filter(
+    (slot) => getSlotBucket(slot?.[0]) === "Afternoon"
+  ).length;
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Schedule Appointment</Text>
-
-      {/* DATE PICKER */}
-      <TouchableOpacity
-        onPress={() => setShowPicker(true)}
-        style={styles.dateBox}
-      >
-        <Text style={styles.dateText}>{date.toISOString().split("T")[0]}</Text>
-      </TouchableOpacity>
-
-      {showPicker && (
-        <DateTimePicker
-          mode="date"
-          value={date}
-          minimumDate={minDate}
-          maximumDate={maxDate}
-          onChange={(event, selectedDate) => {
-            setShowPicker(false);
-            if (selectedDate) setDate(selectedDate);
-          }}
+    <DashboardShell
+      eyebrow="Appointment booking"
+      title={ownerName ? `Book a visit for ${ownerName}` : "Schedule an inspection visit"}
+      subtitle="Review the permit, shift the day, and reserve an inspection window from a booking board that feels fuller and easier to scan."
+      summary={
+        formId
+          ? `Form #${formId} is linked and ready for scheduling.`
+          : "Open a livestock permit from the stockyard to link this booking."
+      }
+      contentContainerStyle={styles.scrollContent}
+    >
+      <View style={styles.statsGrid}>
+        <StatCard
+          label="Open slots"
+          value={loadingSlots ? "..." : availableSlots.length}
+          caption="Live windows on the selected date."
+          icon="calendar-clock-outline"
+          accent="wheat"
+          loading={loadingSlots}
         />
-      )}
-
-      {/* TIME + BUTTON */}
-      <View style={styles.timeRow}>
-        <Text style={styles.timeLabel}>Available Time Slots</Text>
-        <TouchableOpacity
-          style={styles.scheduleBtn}
-          onPress={fetchAvailableSlots}
-        >
-          <Text style={styles.scheduleBtnText}>Refresh</Text>
-        </TouchableOpacity>
+        <StatCard
+          label="Selected day"
+          value={formatShortDate(date)}
+          caption={formatDateLabel(date)}
+          icon="calendar-range"
+          accent="sky"
+        />
+        <StatCard
+          label="Permit window"
+          value={permitSummary.value}
+          caption={permitSummary.caption}
+          icon="shield-check-outline"
+          accent="meadow"
+        />
       </View>
 
-      {/* SLOTS */}
-      <FlatList
-        data={availableSlots}
-        keyExtractor={(item, i) => i.toString()}
-        renderItem={({ item }) => (
-          <TouchableOpacity
-            style={styles.slotButton}
-            onPress={() => openConfirmation(item)}
-          >
-            <Text style={styles.slotText}>
-              {item[0].slice(0, 5)} - {item[1].slice(0, 5)}
+      <View style={styles.surfaceCard}>
+        <View style={[styles.heroRow, isWide && styles.heroRowWide]}>
+          <View style={styles.heroCopy}>
+            <Text style={styles.cardEyebrow}>Permit overview</Text>
+            <Text style={styles.cardTitle}>Line up the visit before the QR expires</Text>
+            <Text style={styles.cardCopy}>
+              The booking stays attached to the selected livestock permit, so the
+              owner, location, and eartag remain visible while you choose the best
+              inspection window.
             </Text>
-          </TouchableOpacity>
+
+            <View style={[styles.infoGrid, isWide && styles.infoGridWide]}>
+              <View style={styles.infoCard}>
+                <Text style={styles.infoLabel}>Owner</Text>
+                <Text style={styles.infoValue}>{ownerName || "Not loaded yet"}</Text>
+              </View>
+              <View style={styles.infoCard}>
+                <Text style={styles.infoLabel}>Eartag</Text>
+                <Text style={styles.infoValue}>{eartagNumber || "No eartag recorded"}</Text>
+              </View>
+              <View style={styles.infoCard}>
+                <Text style={styles.infoLabel}>Location</Text>
+                <Text style={styles.infoValue}>{location || "No address recorded"}</Text>
+              </View>
+              <View style={styles.infoCard}>
+                <Text style={styles.infoLabel}>Valid until</Text>
+                <Text style={styles.infoValue}>
+                  {parsedExpirationDate
+                    ? formatDateLabel(parsedExpirationDate)
+                    : "Permit date unavailable"}
+                </Text>
+              </View>
+            </View>
+
+            <View style={styles.actionRow}>
+              <AgriButton
+                title="Pick another day"
+                subtitle={formatDateLabel(date)}
+                icon="calendar-edit-outline"
+                variant="secondary"
+                compact
+                trailingIcon={false}
+                onPress={() => setShowPicker(true)}
+                style={styles.actionButton}
+              />
+              <AgriButton
+                title="Refresh slots"
+                subtitle="Check this day again"
+                icon="refresh"
+                variant="sky"
+                compact
+                trailingIcon={false}
+                loading={loadingSlots}
+                onPress={refreshSlots}
+                style={styles.actionButton}
+              />
+            </View>
+          </View>
+
+          <View style={styles.highlightCard}>
+            <Text style={styles.highlightEyebrow}>
+              {nextSlot ? "Next opening" : "Date status"}
+            </Text>
+            <Text style={styles.highlightTitle}>
+              {loadingSlots ? "Refreshing..." : nextSlot ? formatSlotRange(nextSlot) : "No open slots"}
+            </Text>
+            <Text style={styles.highlightMeta}>{formatDateLabel(date)}</Text>
+            <View style={styles.highlightStats}>
+              <View style={styles.highlightPill}>
+                <Text style={styles.highlightValue}>{morningCount}</Text>
+                <Text style={styles.highlightLabel}>Morning</Text>
+              </View>
+              <View style={styles.highlightPill}>
+                <Text style={styles.highlightValue}>{afternoonCount}</Text>
+                <Text style={styles.highlightLabel}>Afternoon</Text>
+              </View>
+            </View>
+            <Text style={styles.highlightCopy}>
+              {nextSlot
+                ? "Tap any open slot below to confirm the appointment."
+                : "Try another date or refresh the board for newly opened times."}
+            </Text>
+          </View>
+        </View>
+      </View>
+
+      <View style={styles.surfaceCard}>
+        <View style={styles.sectionHeader}>
+          <View style={styles.sectionHeaderCopy}>
+            <Text style={styles.cardEyebrow}>Available slots</Text>
+            <Text style={styles.cardTitle}>Reserve a stronger visit window</Text>
+            <Text style={styles.cardCopy}>
+              Each slot keeps the time, day, and permit context visible so the
+              booking no longer feels empty before you confirm.
+            </Text>
+          </View>
+          <View style={styles.queueBadge}>
+            <MaterialCommunityIcons
+              name="calendar-star"
+              size={16}
+              color={agriPalette.fieldDeep}
+            />
+            <Text style={styles.queueBadgeText}>{availableSlots.length} open</Text>
+          </View>
+        </View>
+
+        {showPicker ? (
+          <DateTimePicker
+            mode="date"
+            value={date > maxDate ? maxDate : date}
+            minimumDate={minDate}
+            maximumDate={maxDate}
+            onChange={(_event, selectedDate) => {
+              setShowPicker(false);
+              if (selectedDate) {
+                setDate(selectedDate);
+              }
+            }}
+          />
+        ) : null}
+
+        {loadingSlots ? (
+          <ActivityIndicator
+            size="large"
+            color={agriPalette.field}
+            style={styles.loadingState}
+          />
+        ) : availableSlots.length ? (
+          <View style={[styles.slotGrid, isWide && styles.slotGridWide]}>
+            {availableSlots.map((slot, index) => {
+              const palette = getSlotPalette(slot?.[0]);
+
+              return (
+                <Pressable
+                  key={`${slot?.[0] || "start"}-${slot?.[1] || "end"}-${index}`}
+                  onPress={() => openConfirmation(slot)}
+                  style={({ pressed }) => [
+                    styles.slotCard,
+                    {
+                      backgroundColor: palette.background,
+                      borderColor: palette.border,
+                    },
+                    pressed && styles.slotCardPressed,
+                  ]}
+                >
+                  <View style={styles.slotHeader}>
+                    <View
+                      style={[
+                        styles.slotIconWrap,
+                        { backgroundColor: palette.badgeBackground },
+                      ]}
+                    >
+                      <MaterialCommunityIcons
+                        name={palette.icon}
+                        size={20}
+                        color={palette.badgeText}
+                      />
+                    </View>
+
+                    <View style={styles.slotTextWrap}>
+                      <Text style={styles.slotTime}>{formatSlotRange(slot)}</Text>
+                      <Text style={styles.slotDay}>{formatDateLabel(date)}</Text>
+                    </View>
+
+                    <View
+                      style={[
+                        styles.slotBadge,
+                        { backgroundColor: palette.badgeBackground },
+                      ]}
+                    >
+                      <Text style={[styles.slotBadgeText, { color: palette.badgeText }]}>
+                        {getSlotBucket(slot?.[0])}
+                      </Text>
+                    </View>
+                  </View>
+
+                  <Text style={styles.slotHint}>
+                    {index === 0
+                      ? "Earliest open visit for this day."
+                      : "Tap to reserve this inspection window."}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        ) : (
+          <View style={styles.emptyState}>
+            <MaterialCommunityIcons
+              name="calendar-remove-outline"
+              size={36}
+              color={agriPalette.field}
+            />
+            <Text style={styles.emptyTitle}>No open visits on this day</Text>
+            <Text style={styles.emptyCopy}>
+              The selected date is currently full. Try another day before{" "}
+              {parsedExpirationDate
+                ? formatDateLabel(parsedExpirationDate)
+                : "the permit expires"}
+              , or refresh to check for cancellations.
+            </Text>
+            <View style={styles.actionRow}>
+              <AgriButton
+                title="Choose another day"
+                subtitle="Open the date picker"
+                icon="calendar-range"
+                variant="secondary"
+                compact
+                trailingIcon={false}
+                onPress={() => setShowPicker(true)}
+                style={styles.actionButton}
+              />
+              <AgriButton
+                title="Refresh board"
+                subtitle="Check availability again"
+                icon="refresh"
+                variant="sky"
+                compact
+                trailingIcon={false}
+                onPress={refreshSlots}
+                style={styles.actionButton}
+              />
+            </View>
+          </View>
         )}
-      />
+      </View>
 
-      {availableSlots.length === 0 && (
-        <Text style={styles.noSlots}>No slots available.</Text>
-      )}
-
-      {/* CONFIRMATION MODAL */}
       <Modal transparent visible={confirmVisible} animationType="fade">
         <View style={styles.modalOverlay}>
           <BlurView
-            intensity={32}
+            intensity={36}
             tint="dark"
             experimentalBlurMethod="dimezisBlurView"
             style={styles.blurBackdrop}
           />
           <View style={styles.modalTint} />
           <View style={styles.modalBox}>
-            <Text style={styles.modalTitle}>Confirm Appointment?</Text>
-            <Text style={styles.modalText}>
-              {selectedSlot ? `${selectedSlot[0]} - ${selectedSlot[1]}` : ""}
+            <Text style={styles.modalEyebrow}>Confirm booking</Text>
+            <Text style={styles.modalTitle}>Reserve this inspection visit?</Text>
+            <Text style={styles.modalCopy}>
+              This appointment will stay linked to the selected livestock permit
+              and appear in the schedule board after booking.
             </Text>
 
-            <View style={styles.modalButtons}>
-              <TouchableOpacity
-                style={[styles.modalBtn, { backgroundColor: "#4CAF50" }]}
-                onPress={bookSlot}
-              >
-                <Text style={styles.modalBtnText}>Confirm</Text>
-              </TouchableOpacity>
+            <View style={styles.modalSummary}>
+              <Text style={styles.modalSummaryText}>
+                {selectedSlot ? formatSlotRange(selectedSlot) : "Time pending"}
+              </Text>
+              <Text style={styles.modalSummaryMeta}>{formatDateLabel(date)}</Text>
+              <Text style={styles.modalSummaryMeta}>
+                {ownerName || "Owner not loaded"}
+                {eartagNumber ? ` | ${eartagNumber}` : ""}
+              </Text>
+            </View>
 
-              <TouchableOpacity
-                style={[styles.modalBtn, { backgroundColor: "#aaa" }]}
+            <View style={styles.modalActions}>
+              <AgriButton
+                title="Confirm appointment"
+                subtitle="Create the schedule now"
+                icon="check-circle-outline"
+                variant="primary"
+                compact
+                trailingIcon={false}
+                loading={booking}
+                disabled={booking}
+                onPress={bookSlot}
+              />
+              <AgriButton
+                title="Keep browsing"
+                subtitle="Return to the slot board"
+                icon="arrow-left"
+                variant="muted"
+                compact
+                trailingIcon={false}
+                lightText={false}
+                disabled={booking}
                 onPress={() => setConfirmVisible(false)}
-              >
-                <Text style={styles.modalBtnText}>Cancel</Text>
-              </TouchableOpacity>
+              />
             </View>
           </View>
         </View>
       </Modal>
-    </View>
+    </DashboardShell>
   );
 }
 
-// STYLES
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 15, backgroundColor: "#F8FFF9" },
-
-  title: {
-    fontSize: 24,
-    fontWeight: "bold",
-    marginBottom: 15,
-    textAlign: "center",
-    color: "#2E7D32",
+  scrollContent: {
+    paddingBottom: 96,
   },
-
-  dateBox: {
-    padding: 14,
-    backgroundColor: "#ffffff",
-    borderWidth: 1,
-    borderColor: "#A5D6A7",
-    borderRadius: 10,
-    marginBottom: 15,
-  },
-
-  dateText: {
-    fontSize: 18,
-    textAlign: "center",
-    color: "#2E7D32",
-    fontWeight: "600",
-  },
-
-  timeRow: {
+  statsGrid: {
     flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 14,
+    marginBottom: 18,
+  },
+  surfaceCard: {
+    borderRadius: 30,
+    backgroundColor: agriPalette.surface,
+    borderWidth: 1,
+    borderColor: agriPalette.border,
+    paddingHorizontal: 22,
+    paddingVertical: 22,
+    marginBottom: 18,
+    shadowColor: "#203126",
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.08,
+    shadowRadius: 18,
+    elevation: 3,
+  },
+  heroRow: {
+    gap: 18,
+  },
+  heroRowWide: {
+    flexDirection: "row",
+  },
+  heroCopy: {
+    flex: 1.1,
+  },
+  cardEyebrow: {
+    color: agriPalette.field,
+    fontSize: 12,
+    fontWeight: "800",
+    textTransform: "uppercase",
+    letterSpacing: 1.2,
+  },
+  cardTitle: {
+    marginTop: 8,
+    color: agriPalette.ink,
+    fontSize: 25,
+    fontWeight: "900",
+  },
+  cardCopy: {
+    marginTop: 10,
+    color: agriPalette.inkSoft,
+    fontSize: 15,
+    lineHeight: 22,
+  },
+  infoGrid: {
+    gap: 12,
+    marginTop: 18,
+  },
+  infoGridWide: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+  },
+  infoCard: {
+    flexBasis: "48%",
+    flexGrow: 1,
+    minWidth: 150,
+    borderRadius: 22,
+    backgroundColor: agriPalette.cream,
+    borderWidth: 1,
+    borderColor: agriPalette.border,
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+  },
+  infoLabel: {
+    color: agriPalette.inkSoft,
+    fontSize: 12,
+    fontWeight: "800",
+    textTransform: "uppercase",
+    letterSpacing: 0.8,
+  },
+  infoValue: {
+    marginTop: 8,
+    color: agriPalette.ink,
+    fontSize: 15,
+    lineHeight: 21,
+    fontWeight: "800",
+  },
+  actionRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 12,
+    marginTop: 18,
+  },
+  actionButton: {
+    flexBasis: "48%",
+    flexGrow: 1,
+    minWidth: 220,
+  },
+  highlightCard: {
+    flex: 0.9,
+    borderRadius: 28,
+    padding: 18,
+    backgroundColor: "#F2E0A4",
+    minHeight: 220,
     justifyContent: "space-between",
-    marginBottom: 10,
+  },
+  highlightEyebrow: {
+    color: "rgba(31,77,46,0.74)",
+    fontSize: 12,
+    fontWeight: "800",
+    textTransform: "uppercase",
+    letterSpacing: 1.1,
+  },
+  highlightTitle: {
+    marginTop: 12,
+    color: agriPalette.fieldDeep,
+    fontSize: 28,
+    fontWeight: "900",
+    lineHeight: 34,
+  },
+  highlightMeta: {
+    marginTop: 10,
+    color: "rgba(31,77,46,0.82)",
+    fontSize: 14,
+    lineHeight: 21,
+    fontWeight: "700",
+  },
+  highlightStats: {
+    flexDirection: "row",
+    gap: 10,
+    marginTop: 18,
+  },
+  highlightPill: {
+    flex: 1,
+    borderRadius: 18,
+    paddingVertical: 12,
+    backgroundColor: "rgba(255,255,255,0.34)",
     alignItems: "center",
   },
-
-  timeLabel: {
-    fontSize: 16,
-    fontWeight: "bold",
-    color: "#2E7D32",
+  highlightValue: {
+    color: agriPalette.fieldDeep,
+    fontSize: 22,
+    fontWeight: "900",
   },
-
-  scheduleBtn: {
-    paddingVertical: 10,
-    paddingHorizontal: 14,
-    backgroundColor: "#4CAF50",
-    borderRadius: 10,
+  highlightLabel: {
+    marginTop: 4,
+    color: "rgba(31,77,46,0.72)",
+    fontSize: 12,
+    fontWeight: "800",
   },
-
-  scheduleBtnText: { color: "#fff", fontWeight: "bold" },
-
-  slotButton: {
-    padding: 15,
-    backgroundColor: "#4CAF50",
-    borderRadius: 10,
-    marginBottom: 10,
+  highlightCopy: {
+    marginTop: 18,
+    color: "rgba(31,77,46,0.82)",
+    fontSize: 13,
+    lineHeight: 20,
+    fontWeight: "700",
   },
-
-  slotText: { color: "#fff", fontSize: 16, textAlign: "center" },
-
-  noSlots: {
+  sectionHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    gap: 14,
+  },
+  sectionHeaderCopy: {
+    flex: 1,
+  },
+  queueBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    borderRadius: 999,
+    backgroundColor: agriPalette.mist,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    marginTop: 4,
+  },
+  queueBadgeText: {
+    color: agriPalette.fieldDeep,
+    fontSize: 12,
+    fontWeight: "800",
+  },
+  loadingState: {
+    marginVertical: 40,
+  },
+  slotGrid: {
+    gap: 14,
+    marginTop: 18,
+  },
+  slotGridWide: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+  },
+  slotCard: {
+    flexBasis: "48%",
+    flexGrow: 1,
+    minWidth: 250,
+    borderRadius: 26,
+    borderWidth: 1,
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+  },
+  slotCardPressed: {
+    opacity: 0.95,
+    transform: [{ scale: 0.99 }],
+  },
+  slotHeader: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 12,
+  },
+  slotIconWrap: {
+    width: 46,
+    height: 46,
+    borderRadius: 16,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  slotTextWrap: {
+    flex: 1,
+  },
+  slotTime: {
+    color: agriPalette.ink,
+    fontSize: 19,
+    fontWeight: "900",
+  },
+  slotDay: {
+    marginTop: 5,
+    color: agriPalette.inkSoft,
+    fontSize: 13,
+    lineHeight: 19,
+  },
+  slotBadge: {
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+  },
+  slotBadgeText: {
+    fontSize: 12,
+    fontWeight: "800",
+  },
+  slotHint: {
+    marginTop: 14,
+    color: agriPalette.inkSoft,
+    fontSize: 13,
+    lineHeight: 20,
+    fontWeight: "700",
+  },
+  emptyState: {
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 18,
+    paddingHorizontal: 20,
+    paddingVertical: 30,
+    borderRadius: 24,
+    backgroundColor: agriPalette.cream,
+    borderWidth: 1,
+    borderColor: agriPalette.border,
+  },
+  emptyTitle: {
+    marginTop: 12,
+    color: agriPalette.ink,
+    fontSize: 18,
+    fontWeight: "900",
     textAlign: "center",
-    marginTop: 20,
-    color: "#777",
   },
-
+  emptyCopy: {
+    marginTop: 8,
+    color: agriPalette.inkSoft,
+    fontSize: 14,
+    lineHeight: 21,
+    textAlign: "center",
+  },
   modalOverlay: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
+    paddingHorizontal: 20,
   },
   blurBackdrop: {
     ...StyleSheet.absoluteFillObject,
@@ -315,40 +963,58 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     backgroundColor: "rgba(0,0,0,0.28)",
   },
-
   modalBox: {
-    width: "80%",
-    padding: 20,
-    backgroundColor: "#fff",
-    borderRadius: 12,
-    alignItems: "center",
+    width: "100%",
+    maxWidth: 420,
+    borderRadius: 28,
+    paddingHorizontal: 20,
+    paddingVertical: 20,
+    backgroundColor: agriPalette.surface,
+    borderWidth: 1,
+    borderColor: agriPalette.border,
   },
-
+  modalEyebrow: {
+    color: agriPalette.field,
+    fontSize: 12,
+    fontWeight: "800",
+    textTransform: "uppercase",
+    letterSpacing: 1.1,
+  },
   modalTitle: {
-    fontSize: 20,
-    fontWeight: "bold",
-    marginBottom: 10,
+    marginTop: 8,
+    color: agriPalette.ink,
+    fontSize: 24,
+    fontWeight: "900",
   },
-
-  modalText: {
-    fontSize: 16,
-    marginBottom: 20,
+  modalCopy: {
+    marginTop: 10,
+    color: agriPalette.inkSoft,
+    fontSize: 14,
+    lineHeight: 21,
   },
-
-  modalButtons: {
-    flexDirection: "row",
+  modalSummary: {
+    marginTop: 18,
+    borderRadius: 22,
+    backgroundColor: agriPalette.cream,
+    borderWidth: 1,
+    borderColor: agriPalette.border,
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+  },
+  modalSummaryText: {
+    color: agriPalette.fieldDeep,
+    fontSize: 18,
+    fontWeight: "900",
+  },
+  modalSummaryMeta: {
+    marginTop: 6,
+    color: agriPalette.inkSoft,
+    fontSize: 13,
+    lineHeight: 19,
+    fontWeight: "700",
+  },
+  modalActions: {
     gap: 10,
-  },
-
-  modalBtn: {
-    flex: 1,
-    padding: 12,
-    borderRadius: 10,
-  },
-
-  modalBtnText: {
-    color: "#fff",
-    textAlign: "center",
-    fontWeight: "bold",
+    marginTop: 18,
   },
 });
