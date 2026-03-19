@@ -99,7 +99,13 @@ function isQRExpired(expirationDate, isExpiredFlag) {
     return true;
   }
 
-  return new Date(expirationDate) <= new Date();
+  const parsedExpiry = parseSqlDateTime(expirationDate);
+
+  if (!parsedExpiry) {
+    return true;
+  }
+
+  return parsedExpiry.getTime() <= Date.now();
 }
 
 function getDaysRemaining(expirationDate) {
@@ -107,8 +113,13 @@ function getDaysRemaining(expirationDate) {
     return "No expiry recorded";
   }
 
+  const expiry = parseSqlDateTime(expirationDate);
+
+  if (!expiry) {
+    return "No expiry recorded";
+  }
+
   const today = new Date();
-  const expiry = new Date(expirationDate);
   const diff = Math.ceil((expiry - today) / (1000 * 60 * 60 * 24));
 
   if (diff < 0) {
@@ -120,6 +131,40 @@ function getDaysRemaining(expirationDate) {
   }
 
   return `${diff} day${diff === 1 ? "" : "s"} left`;
+}
+
+function parseSqlDateTime(value) {
+  const raw = String(value || "").trim();
+
+  if (!raw) {
+    return null;
+  }
+
+  const normalized = raw.replace(" ", "T");
+  const parsed = new Date(normalized);
+
+  if (!Number.isNaN(parsed.getTime())) {
+    return parsed;
+  }
+
+  const match = raw.match(
+    /^(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{2}):(\d{2})(?::(\d{2}))?)?$/
+  );
+
+  if (!match) {
+    return null;
+  }
+
+  const [, year, month, day, hour = "0", minute = "0", second = "0"] = match;
+
+  return new Date(
+    Number(year),
+    Number(month) - 1,
+    Number(day),
+    Number(hour),
+    Number(minute),
+    Number(second)
+  );
 }
 
 function formatDateLabel(dateValue) {
