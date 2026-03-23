@@ -9,6 +9,26 @@ export default function RootLayout() {
   const router = useRouter();
 
   useEffect(() => {
+    if (typeof document === "undefined") {
+      return undefined;
+    }
+
+    const previousHtmlOverflowX = document.documentElement.style.overflowX;
+    const previousBodyOverflowX = document.body.style.overflowX;
+    const previousBodyWidth = document.body.style.width;
+
+    document.documentElement.style.overflowX = "hidden";
+    document.body.style.overflowX = "hidden";
+    document.body.style.width = "100%";
+
+    return () => {
+      document.documentElement.style.overflowX = previousHtmlOverflowX;
+      document.body.style.overflowX = previousBodyOverflowX;
+      document.body.style.width = previousBodyWidth;
+    };
+  }, []);
+
+  useEffect(() => {
     let mounted = true;
     let responseSubscription = null;
 

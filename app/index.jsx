@@ -406,6 +406,8 @@ const styles = StyleSheet.create({
   root: {
     flex: 1,
     position: "relative",
+    width: "100%",
+    overflow: "hidden",
   },
   flex: {
     flex: 1,
@@ -439,21 +441,25 @@ const styles = StyleSheet.create({
   page: {
     width: "100%",
     maxWidth: 1100,
+    minWidth: 0,
     alignSelf: "center",
     justifyContent: "center",
   },
   heroColumn: {
     width: "100%",
+    minWidth: 0,
     marginBottom: 20,
   },
   heroColumnWide: {
     flex: 1,
+    minWidth: 0,
     paddingRight: 28,
     marginBottom: 0,
   },
   brandRow: {
     flexDirection: "row",
     alignItems: "center",
+    width: "100%",
   },
   logo: {
     width: 84,
@@ -468,6 +474,7 @@ const styles = StyleSheet.create({
   },
   brandTextWrap: {
     flex: 1,
+    minWidth: 0,
   },
   eyebrow: {
     color: "rgba(255,244,214,0.86)",
@@ -482,6 +489,7 @@ const styles = StyleSheet.create({
     fontWeight: "900",
     lineHeight: 34,
     color: agriPalette.white,
+    flexShrink: 1,
   },
   logoTextCompact: {
     fontSize: 24,

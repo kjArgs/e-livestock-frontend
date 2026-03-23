@@ -190,10 +190,14 @@ export default function DashboardShell({
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
+    width: "100%",
     backgroundColor: agriPalette.cream,
+    overflow: "hidden",
   },
   background: {
     flex: 1,
+    width: "100%",
+    overflow: "hidden",
   },
   orbTopLeft: {
     position: "absolute",
@@ -215,6 +219,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     flexGrow: 1,
+    width: "100%",
     paddingHorizontal: 18,
     paddingTop: 28,
     paddingBottom: 32,
@@ -222,6 +227,7 @@ const styles = StyleSheet.create({
   maxWidth: {
     width: "100%",
     maxWidth: 980,
+    minWidth: 0,
     alignSelf: "center",
   },
   heroCard: {
@@ -239,6 +245,7 @@ const styles = StyleSheet.create({
     elevation: 6,
   },
   heroContent: {
+    width: "100%",
     flexDirection: "row",
     flexWrap: "wrap",
     alignItems: "flex-start",
@@ -249,7 +256,7 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     flexShrink: 1,
     flexBasis: 320,
-    minWidth: 220,
+    minWidth: 0,
   },
   eyebrow: {
     color: "rgba(255,244,214,0.88)",
@@ -267,11 +274,13 @@ const styles = StyleSheet.create({
   },
   inlineTitleRow: {
     flexDirection: "row",
+    flexWrap: "wrap",
     alignItems: "center",
     gap: 14,
   },
   inlineTitleTextWrap: {
     flex: 1,
+    minWidth: 0,
   },
   inlineProfileRole: {
     marginTop: 6,
@@ -301,7 +310,7 @@ const styles = StyleSheet.create({
   },
   profilePanel: {
     flexBasis: 220,
-    minWidth: 220,
+    minWidth: 0,
     maxWidth: 280,
     alignSelf: "stretch",
     flexDirection: "row",

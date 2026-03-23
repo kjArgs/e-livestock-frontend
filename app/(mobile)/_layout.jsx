@@ -274,9 +274,12 @@ function FooterButton({ label, to, path, icon, onPress, danger = false }) {
 const styles = StyleSheet.create({
   shell: {
     flex: 1,
+    width: "100%",
     backgroundColor: agriPalette.cream,
+    overflow: "hidden",
   },
   footer: {
+    width: "100%",
     flexDirection: "row",
     justifyContent: "space-between",
     gap: 8,
