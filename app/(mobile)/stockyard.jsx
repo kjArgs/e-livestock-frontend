@@ -955,6 +955,7 @@ export default function Stockyard() {
                             style={[
                               styles.qrCard,
                               useStackedCardLayout && styles.qrCardStacked,
+                              isCompact && styles.qrCardCompact,
                             ]}
                           >
                             {!useStackedCardLayout ? (
@@ -976,6 +977,7 @@ export default function Stockyard() {
                                 styles.qrCopyWrap,
                                 useStackedCardLayout &&
                                   styles.qrCopyWrapStacked,
+                                isCompact && styles.qrCopyWrapCompact,
                               ]}
                             >
                               {useStackedCardLayout ? (
@@ -1087,6 +1089,7 @@ export default function Stockyard() {
 
 const styles = StyleSheet.create({
   scrollContent: {
+    width: "100%",
     paddingBottom: 96,
   },
   statsGrid: {
@@ -1096,6 +1099,8 @@ const styles = StyleSheet.create({
     marginBottom: 18,
   },
   surfaceCard: {
+    width: "100%",
+    alignSelf: "stretch",
     borderRadius: 30,
     backgroundColor: agriPalette.surface,
     borderWidth: 1,
@@ -1108,6 +1113,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.08,
     shadowRadius: 18,
     elevation: 3,
+    overflow: "hidden",
   },
   cardEyebrow: {
     color: agriPalette.field,
@@ -1129,6 +1135,8 @@ const styles = StyleSheet.create({
     lineHeight: 22,
   },
   searchWrap: {
+    width: "100%",
+    minWidth: 0,
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
@@ -1142,6 +1150,7 @@ const styles = StyleSheet.create({
   },
   searchInput: {
     flex: 1,
+    minWidth: 0,
     minHeight: 44,
     color: agriPalette.ink,
     fontSize: 15,
@@ -1164,10 +1173,13 @@ const styles = StyleSheet.create({
     marginVertical: 40,
   },
   formStack: {
+    width: "100%",
     gap: 14,
     marginTop: 18,
   },
   formCard: {
+    width: "100%",
+    alignSelf: "stretch",
     borderRadius: 28,
     backgroundColor: agriPalette.cream,
     borderWidth: 1,
@@ -1179,6 +1191,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.06,
     shadowRadius: 16,
     elevation: 2,
+    overflow: "hidden",
   },
   formCardHighlighted: {
     borderColor: agriPalette.field,
@@ -1188,11 +1201,14 @@ const styles = StyleSheet.create({
   },
   summaryPressable: {
     borderRadius: 22,
+    minWidth: 0,
   },
   summaryPressablePressed: {
     opacity: 0.92,
   },
   cardHeader: {
+    width: "100%",
+    minWidth: 0,
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
@@ -1204,6 +1220,7 @@ const styles = StyleSheet.create({
   },
   headerIdentity: {
     flex: 1,
+    minWidth: 0,
     flexDirection: "row",
     alignItems: "center",
     gap: 12,
@@ -1226,11 +1243,13 @@ const styles = StyleSheet.create({
   },
   headerTextWrap: {
     flex: 1,
+    minWidth: 0,
   },
   headerControls: {
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
+    maxWidth: "100%",
   },
   formTitle: {
     color: agriPalette.ink,
@@ -1251,6 +1270,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 8,
     alignSelf: "flex-start",
+    maxWidth: "100%",
   },
   statusBadgeActive: {
     backgroundColor: "#EEF7E9",
@@ -1261,6 +1281,7 @@ const styles = StyleSheet.create({
   statusBadgeText: {
     fontSize: 12,
     fontWeight: "800",
+    flexShrink: 1,
   },
   statusBadgeTextActive: {
     color: agriPalette.fieldDeep,
@@ -1277,6 +1298,8 @@ const styles = StyleSheet.create({
     backgroundColor: "#EAF0E3",
   },
   summaryMetrics: {
+    width: "100%",
+    minWidth: 0,
     flexDirection: "row",
     flexWrap: "wrap",
     gap: 10,
@@ -1285,7 +1308,7 @@ const styles = StyleSheet.create({
   summaryChip: {
     flexBasis: "31%",
     flexGrow: 1,
-    minWidth: 118,
+    minWidth: 0,
     borderRadius: 18,
     backgroundColor: agriPalette.surface,
     borderWidth: 1,
@@ -1316,6 +1339,7 @@ const styles = StyleSheet.create({
     color: agriPalette.ink,
     fontSize: 14,
     fontWeight: "800",
+    flexShrink: 1,
   },
   summaryChipValueExpired: {
     color: agriPalette.redClay,
@@ -1327,12 +1351,16 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
   expandedContent: {
+    width: "100%",
+    minWidth: 0,
     marginTop: 16,
     paddingTop: 16,
     borderTopWidth: 1,
     borderTopColor: "#E1E7D7",
   },
   formBody: {
+    width: "100%",
+    minWidth: 0,
     flexDirection: "row",
     flexWrap: "wrap",
     gap: 14,
@@ -1343,12 +1371,15 @@ const styles = StyleSheet.create({
   detailColumn: {
     flex: 1,
     minWidth: 220,
+    maxWidth: "100%",
     gap: 12,
   },
   detailColumnCompact: {
     minWidth: 0,
   },
   infoGrid: {
+    width: "100%",
+    minWidth: 0,
     flexDirection: "row",
     flexWrap: "wrap",
     gap: 12,
@@ -1359,7 +1390,7 @@ const styles = StyleSheet.create({
   infoBlock: {
     flexBasis: "48%",
     flexGrow: 1,
-    minWidth: 130,
+    minWidth: 0,
     minHeight: 88,
     borderRadius: 18,
     backgroundColor: agriPalette.surface,
@@ -1384,6 +1415,7 @@ const styles = StyleSheet.create({
     lineHeight: 21,
   },
   ownerPanel: {
+    minWidth: 0,
     borderRadius: 20,
     backgroundColor: "#FDFBF4",
     borderWidth: 1,
@@ -1409,10 +1441,12 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "700",
     lineHeight: 21,
+    flexShrink: 1,
   },
   expiryPanel: {
+    minWidth: 0,
     flexDirection: "row",
-    alignItems: "center",
+    alignItems: "flex-start",
     gap: 8,
     paddingHorizontal: 12,
     paddingVertical: 12,
@@ -1426,17 +1460,20 @@ const styles = StyleSheet.create({
     borderColor: "#E6BEA9",
   },
   expiryPanelText: {
+    flex: 1,
     color: agriPalette.fieldDeep,
     fontSize: 13,
     fontWeight: "800",
     lineHeight: 19,
+    flexShrink: 1,
   },
   expiryPanelTextExpired: {
     color: agriPalette.redClay,
   },
   renewalPanel: {
+    minWidth: 0,
     flexDirection: "row",
-    alignItems: "center",
+    alignItems: "flex-start",
     gap: 8,
     paddingHorizontal: 12,
     paddingVertical: 12,
@@ -1455,11 +1492,14 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "800",
     lineHeight: 19,
+    flexShrink: 1,
   },
   renewalPanelTextCancelled: {
     color: agriPalette.redClay,
   },
   qrCard: {
+    maxWidth: "100%",
+    minWidth: 0,
     width: 170,
     alignItems: "center",
     justifyContent: "flex-start",
@@ -1477,8 +1517,15 @@ const styles = StyleSheet.create({
     justifyContent: "flex-start",
     gap: 16,
     paddingHorizontal: 16,
+    minWidth: 0,
+  },
+  qrCardCompact: {
+    flexDirection: "column",
+    alignItems: "stretch",
+    gap: 12,
   },
   qrSurface: {
+    alignSelf: "center",
     padding: 12,
     borderRadius: 18,
     backgroundColor: agriPalette.white,
@@ -1505,17 +1552,23 @@ const styles = StyleSheet.create({
   qrCopyWrap: {
     marginTop: 12,
     alignItems: "center",
+    minWidth: 0,
   },
   qrCopyWrapStacked: {
     flex: 1,
     marginTop: 0,
     alignItems: "flex-start",
+    minWidth: 0,
+  },
+  qrCopyWrapCompact: {
+    alignItems: "center",
   },
   qrLabel: {
     color: agriPalette.fieldDeep,
     fontSize: 13,
     fontWeight: "800",
     textAlign: "center",
+    flexShrink: 1,
   },
   qrLabelStacked: {
     fontSize: 13,
@@ -1528,19 +1581,23 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 18,
     textAlign: "center",
+    flexShrink: 1,
   },
   qrCaptionStacked: {
     textAlign: "left",
   },
   actionStack: {
+    width: "100%",
     gap: 10,
     marginTop: 16,
   },
   actionStackWide: {
     flexDirection: "row",
+    flexWrap: "wrap",
   },
   actionCell: {
     flex: 1,
+    minWidth: 0,
   },
   emptyState: {
     alignItems: "center",

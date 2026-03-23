@@ -114,6 +114,8 @@ const styles = StyleSheet.create({
     transform: [{ scale: 0.99 }],
   },
   button: {
+    width: "100%",
+    minWidth: 0,
     minHeight: 74,
     borderRadius: 24,
     paddingHorizontal: 18,
@@ -150,16 +152,19 @@ const styles = StyleSheet.create({
   },
   textWrap: {
     flex: 1,
+    minWidth: 0,
   },
   title: {
     fontSize: 16,
     fontWeight: "800",
     letterSpacing: 0.2,
+    flexShrink: 1,
   },
   subtitle: {
     marginTop: 2,
     fontSize: 12,
     lineHeight: 18,
+    flexShrink: 1,
   },
   lightTitle: {
     color: agriPalette.white,
