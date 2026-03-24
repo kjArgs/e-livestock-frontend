@@ -1,12 +1,28 @@
 import { ScrollViewStyleReset } from "expo-router/html";
 import type { PropsWithChildren } from "react";
 
-const serviceWorkerBootstrap = `
+const serviceWorkerCleanup = `
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker
-      .register('/sw.js')
-      .catch((error) => console.error('Service worker registration failed:', error));
+      .getRegistrations()
+      .then((registrations) =>
+        Promise.all(registrations.map((registration) => registration.unregister()))
+      )
+      .catch((error) => console.error('Service worker cleanup failed:', error));
+
+    if ('caches' in window) {
+      caches
+        .keys()
+        .then((keys) =>
+          Promise.all(
+            keys
+              .filter((key) => key.startsWith('elivestock-pwa-'))
+              .map((key) => caches.delete(key))
+          )
+        )
+        .catch((error) => console.error('Cache cleanup failed:', error));
+    }
   });
 }
 `;
@@ -22,15 +38,11 @@ export default function Root({ children }: PropsWithChildren) {
           content="width=device-width, initial-scale=1, shrink-to-fit=no, viewport-fit=cover"
         />
         <meta name="theme-color" content="#1F4D2E" />
-        <meta name="apple-mobile-web-app-capable" content="yes" />
-        <meta name="apple-mobile-web-app-status-bar-style" content="default" />
         <meta
           name="description"
           content="Manage livestock permits, inspections, schedules, renewals, and alerts with e-Livestock Services for Sipocot."
         />
-        <link rel="manifest" href="/manifest.json" />
-        <link rel="apple-touch-icon" href="/logo192.png" />
-        <script dangerouslySetInnerHTML={{ __html: serviceWorkerBootstrap }} />
+        <script dangerouslySetInnerHTML={{ __html: serviceWorkerCleanup }} />
         <ScrollViewStyleReset />
       </head>
       <body>{children}</body>
