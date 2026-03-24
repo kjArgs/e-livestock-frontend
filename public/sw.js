@@ -1,5 +1,6 @@
-const CACHE_NAME = "elivestock-pwa-v1";
+const CACHE_NAME = "elivestock-pwa-v2";
 const APP_SHELL = ["/", "/manifest.json", "/logo192.png", "/logo512.png"];
+const APP_SHELL_PATHS = new Set(APP_SHELL);
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
@@ -52,6 +53,10 @@ self.addEventListener("fetch", (event) => {
           return cachedPage || caches.match("/");
         })
     );
+    return;
+  }
+
+  if (!APP_SHELL_PATHS.has(url.pathname)) {
     return;
   }
 
