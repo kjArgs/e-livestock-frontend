@@ -13,9 +13,9 @@ import {
   useWindowDimensions,
   View,
 } from "react-native";
-import DateTimePickerModal from "react-native-modal-datetime-picker";
 import QRCode from "react-native-qrcode-svg";
 import AgriButton from "../../components/AgriButton";
+import CrossPlatformDatePickerModal from "../../components/CrossPlatformDatePickerModal";
 import DashboardShell from "../../components/DashboardShell";
 import FormDetailsModal from "../../components/FormDetailsModal";
 import StatCard from "../../components/StatCard";
@@ -1076,10 +1076,13 @@ export default function Stockyard() {
         form={selectedForm}
       />
 
-      <DateTimePickerModal
-        isVisible={renewalPickerVisible}
-        mode="date"
+      <CrossPlatformDatePickerModal
+        visible={renewalPickerVisible}
+        value={new Date()}
         minimumDate={new Date()}
+        title="Choose a renewal date"
+        description="Pick the day you want the agriculture office to process this expired permit renewal request."
+        confirmLabel="Request renewal"
         onConfirm={submitRenewalRequest}
         onCancel={closeRenewalPicker}
       />

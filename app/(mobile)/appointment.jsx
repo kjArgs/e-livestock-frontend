@@ -1,5 +1,4 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import DateTimePicker from "@react-native-community/datetimepicker";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { BlurView } from "expo-blur";
 import { useRouter } from "expo-router";
@@ -15,6 +14,7 @@ import {
   View,
 } from "react-native";
 import AgriButton from "../../components/AgriButton";
+import CrossPlatformDatePickerModal from "../../components/CrossPlatformDatePickerModal";
 import DashboardShell from "../../components/DashboardShell";
 import StatCard from "../../components/StatCard";
 import { agriPalette } from "../../constants/agriTheme";
@@ -531,21 +531,6 @@ export default function Appointment() {
           </View>
         </View>
 
-        {showPicker ? (
-          <DateTimePicker
-            mode="date"
-            value={date > maxDate ? maxDate : date}
-            minimumDate={minDate}
-            maximumDate={maxDate}
-            onChange={(_event, selectedDate) => {
-              setShowPicker(false);
-              if (selectedDate) {
-                setDate(selectedDate);
-              }
-            }}
-          />
-        ) : null}
-
         {loadingSlots ? (
           <ActivityIndicator
             size="large"
@@ -650,6 +635,21 @@ export default function Appointment() {
           </View>
         )}
       </View>
+
+      <CrossPlatformDatePickerModal
+        visible={showPicker}
+        value={date > maxDate ? maxDate : date}
+        minimumDate={minDate}
+        maximumDate={maxDate}
+        title="Choose the appointment day"
+        description="Select the inspection day you want to review before booking an available time slot."
+        confirmLabel="Use this booking day"
+        onConfirm={(selectedDate) => {
+          setShowPicker(false);
+          setDate(selectedDate);
+        }}
+        onCancel={() => setShowPicker(false)}
+      />
 
       <Modal transparent visible={confirmVisible} animationType="fade">
         <View style={styles.modalOverlay}>

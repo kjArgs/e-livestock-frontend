@@ -1,5 +1,4 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import DateTimePicker from "@react-native-community/datetimepicker";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -14,6 +13,7 @@ import {
   View,
 } from "react-native";
 import AgriButton from "../../components/AgriButton";
+import CrossPlatformDatePickerModal from "../../components/CrossPlatformDatePickerModal";
 import DashboardShell from "../../components/DashboardShell";
 import StatCard from "../../components/StatCard";
 import { agriPalette } from "../../constants/agriTheme";
@@ -772,20 +772,18 @@ export default function ScheduleScreen() {
         )}
       </View>
 
-      {showDatePicker ? (
-        <DateTimePicker
-          value={selectedDate ? new Date(`${selectedDate}T00:00:00`) : new Date()}
-          mode="date"
-          display="default"
-          onChange={(_event, pickedDate) => {
-            setShowDatePicker(false);
-
-            if (pickedDate) {
-              setSelectedDate(toScheduleDateKey(pickedDate));
-            }
-          }}
-        />
-      ) : null}
+      <CrossPlatformDatePickerModal
+        visible={showDatePicker}
+        value={selectedDate ? new Date(`${selectedDate}T12:00:00`) : new Date()}
+        title="Choose a schedule date"
+        description="Filter the schedule board to one inspection day, then review every visit linked to it."
+        confirmLabel="Filter this day"
+        onConfirm={(pickedDate) => {
+          setShowDatePicker(false);
+          setSelectedDate(toScheduleDateKey(pickedDate));
+        }}
+        onCancel={() => setShowDatePicker(false)}
+      />
     </DashboardShell>
   );
 }
