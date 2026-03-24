@@ -2,7 +2,15 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { Slot, usePathname, useRouter } from "expo-router";
 import { useEffect, useRef, useState } from "react";
-import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
+import {
+  Alert,
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+  useWindowDimensions,
+} from "react-native";
 import { Provider as PaperProvider } from "react-native-paper";
 import LogoutConfirmModal from "../../components/LogoutConfirmModal";
 import { agriPalette, agriPaperTheme } from "../../constants/agriTheme";
@@ -122,6 +130,8 @@ const FOOTER_ITEMS_BY_ROLE = {
 export default function ScreensLayout() {
   const path = usePathname();
   const router = useRouter();
+  const { width } = useWindowDimensions();
+  const isWideFooter = width >= 960;
   const [role, setRole] = useState("");
   const [logoutModalVisible, setLogoutModalVisible] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
@@ -172,6 +182,7 @@ export default function ScreensLayout() {
 
   const footerItems = FOOTER_ITEMS_BY_ROLE[role] || [];
   const shouldHideFooter = HIDE_FOOTER_SCREENS.has(path) || !footerItems.length;
+  const footerInset = isWideFooter ? 122 : 92;
 
   const handleLogout = () => {
     if (loggingOut) {
@@ -205,7 +216,14 @@ export default function ScreensLayout() {
   return (
     <PaperProvider theme={agriPaperTheme}>
       <View style={styles.shell}>
-        <Slot />
+        <View
+          style={[
+            styles.contentArea,
+            !shouldHideFooter && { paddingBottom: footerInset },
+          ]}
+        >
+          <Slot />
+        </View>
         <LogoutConfirmModal
           visible={logoutModalVisible}
           loading={loggingOut}
@@ -214,18 +232,21 @@ export default function ScreensLayout() {
         />
 
         {!shouldHideFooter && (
-          <View style={styles.footer}>
-            {footerItems.map((item) => (
-              <FooterButton
-                key={item.key}
-                label={item.label}
-                to={item.to}
-                path={path}
-                icon={item.icon}
-                onPress={item.danger ? handleLogout : undefined}
-                danger={item.danger}
-              />
-            ))}
+          <View style={[styles.footerFrame, isWideFooter && styles.footerFrameWide]}>
+            <View style={[styles.footer, isWideFooter && styles.footerWide]}>
+              {footerItems.map((item) => (
+                <FooterButton
+                  key={item.key}
+                  label={item.label}
+                  to={item.to}
+                  path={path}
+                  icon={item.icon}
+                  onPress={item.danger ? handleLogout : undefined}
+                  danger={item.danger}
+                  isWideFooter={isWideFooter}
+                />
+              ))}
+            </View>
           </View>
         )}
       </View>
@@ -233,7 +254,15 @@ export default function ScreensLayout() {
   );
 }
 
-function FooterButton({ label, to, path, icon, onPress, danger = false }) {
+function FooterButton({
+  label,
+  to,
+  path,
+  icon,
+  onPress,
+  danger = false,
+  isWideFooter = false,
+}) {
   const router = useRouter();
   const isActive = Boolean(to && (path === to || path.startsWith(`${to}/`)));
 
@@ -242,6 +271,7 @@ function FooterButton({ label, to, path, icon, onPress, danger = false }) {
       onPress={onPress || (() => router.replace(to))}
       style={({ pressed }) => [
         styles.footerButton,
+        isWideFooter && styles.footerButtonWide,
         isActive && styles.footerButtonActive,
         danger && styles.footerButtonDanger,
         pressed && styles.footerButtonPressed,
@@ -249,7 +279,7 @@ function FooterButton({ label, to, path, icon, onPress, danger = false }) {
     >
       <MaterialCommunityIcons
         name={icon}
-        size={20}
+        size={isWideFooter ? 22 : 20}
         color={
           danger
             ? agriPalette.redClay
@@ -261,6 +291,7 @@ function FooterButton({ label, to, path, icon, onPress, danger = false }) {
       <Text
         style={[
           styles.footerLabel,
+          isWideFooter && styles.footerLabelWide,
           isActive && styles.footerLabelActive,
           danger && styles.footerLabelDanger,
         ]}
@@ -278,6 +309,22 @@ const styles = StyleSheet.create({
     backgroundColor: agriPalette.cream,
     overflow: "hidden",
   },
+  contentArea: {
+    flex: 1,
+    width: "100%",
+  },
+  footerFrame: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 0,
+    paddingHorizontal: 10,
+    paddingBottom: 10,
+  },
+  footerFrameWide: {
+    paddingHorizontal: 18,
+    paddingBottom: 18,
+  },
   footer: {
     width: "100%",
     flexDirection: "row",
@@ -290,6 +337,30 @@ const styles = StyleSheet.create({
     borderColor: "#E5E6DB",
     backgroundColor: agriPalette.surface,
   },
+  footerWide: {
+    maxWidth: 1120,
+    alignSelf: "center",
+    paddingHorizontal: 10,
+    paddingTop: 10,
+    paddingBottom: 10,
+    borderWidth: 1,
+    borderTopWidth: 1,
+    borderRadius: 28,
+    borderColor: "rgba(208, 216, 193, 0.92)",
+    backgroundColor: "rgba(255, 253, 247, 0.97)",
+    ...Platform.select({
+      web: {
+        boxShadow: "0px 20px 36px rgba(16, 37, 26, 0.14)",
+      },
+      default: {
+        shadowColor: "#10251a",
+        shadowOffset: { width: 0, height: 14 },
+        shadowOpacity: 0.12,
+        shadowRadius: 20,
+        elevation: 8,
+      },
+    }),
+  },
   footerButton: {
     flex: 1,
     minHeight: 58,
@@ -301,6 +372,11 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     paddingHorizontal: 6,
   },
+  footerButtonWide: {
+    minHeight: 64,
+    borderRadius: 22,
+    paddingHorizontal: 12,
+  },
   footerButtonActive: {
     backgroundColor: agriPalette.field,
     borderColor: agriPalette.field,
@@ -311,6 +387,7 @@ const styles = StyleSheet.create({
   },
   footerButtonPressed: {
     opacity: 0.9,
+    transform: [{ scale: 0.985 }],
   },
   footerLabel: {
     marginTop: 4,
@@ -318,6 +395,9 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     color: agriPalette.fieldDeep,
     textAlign: "center",
+  },
+  footerLabelWide: {
+    fontSize: 11,
   },
   footerLabelActive: {
     color: agriPalette.white,

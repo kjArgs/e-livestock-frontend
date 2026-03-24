@@ -24,7 +24,7 @@ export default function ThemedTextInput({
       duration: 180,
       useNativeDriver: false,
     }).start();
-  }, [isFocused, value]);
+  }, [animatedLabel, isFocused, value]);
 
   const labelStyle = {
     position: "absolute",

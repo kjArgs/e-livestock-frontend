@@ -69,10 +69,11 @@ function LoginScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
   const { colors } = useTheme();
-  const { width } = useWindowDimensions();
+  const { width, height } = useWindowDimensions();
   const scrollViewRef = useRef(null);
-  const isWide = width >= 920;
+  const useSplitLayout = width >= 1180 || (width >= 1040 && width > height);
   const isCompact = width < 560;
+  const isTallPortrait = height > width && height >= 980;
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -110,7 +111,7 @@ function LoginScreen() {
   }, []);
 
   const focusFormField = (offset = 280) => {
-    if (isWide) {
+    if (useSplitLayout) {
       return;
     }
 
@@ -247,24 +248,41 @@ function LoginScreen() {
           contentContainerStyle={[
             styles.scrollContent,
             keyboardVisible && styles.scrollContentKeyboardOpen,
-            { paddingBottom: keyboardVisible ? keyboardHeight + 36 : 28 },
+            {
+              justifyContent: useSplitLayout ? "center" : "flex-start",
+              paddingTop: useSplitLayout ? 28 : isCompact ? 18 : isTallPortrait ? 34 : 24,
+              paddingBottom: keyboardVisible
+                ? keyboardHeight + 36
+                : useSplitLayout
+                  ? 28
+                  : isCompact
+                    ? 24
+                    : 32,
+            },
           ]}
         >
           <View
             style={[
               styles.page,
               {
-                flexDirection: isWide ? "row" : "column",
-                alignItems: isWide ? "center" : "stretch",
+                flexDirection: useSplitLayout ? "row" : "column",
+                alignItems: useSplitLayout ? "center" : "stretch",
+                gap: useSplitLayout ? 40 : isCompact ? 24 : 30,
                 paddingHorizontal: isCompact ? 16 : 20,
-                paddingVertical: isCompact ? 18 : 30,
+                paddingVertical: isCompact ? 16 : useSplitLayout ? 30 : 20,
               },
             ]}
           >
-            <View style={[styles.heroColumn, isWide && styles.heroColumnWide]}>
+            <View
+              style={[
+                styles.heroColumn,
+                useSplitLayout ? styles.heroColumnWide : styles.heroColumnStacked,
+              ]}
+            >
               <View style={styles.brandRow}>
                 <Image
                   source={require("../assets/logo.png")}
+                  resizeMode="contain"
                   style={[styles.logo, isCompact && styles.logoCompact]}
                 />
                 <View style={styles.brandTextWrap}>
@@ -307,9 +325,11 @@ function LoginScreen() {
               style={[
                 styles.card,
                 isCompact && styles.cardCompact,
+                !useSplitLayout && styles.cardStacked,
                 { backgroundColor: colors.surface },
               ]}
             >
+              <Text style={styles.cardEyebrow}>Secure sign in</Text>
 
               <Text style={[styles.cardTitle, { color: colors.onSurface }]}>
                 Welcome back
@@ -440,7 +460,7 @@ const styles = StyleSheet.create({
   },
   page: {
     width: "100%",
-    maxWidth: 1100,
+    maxWidth: 1160,
     minWidth: 0,
     alignSelf: "center",
     justifyContent: "center",
@@ -448,13 +468,16 @@ const styles = StyleSheet.create({
   heroColumn: {
     width: "100%",
     minWidth: 0,
-    marginBottom: 20,
+    maxWidth: 680,
   },
   heroColumnWide: {
     flex: 1,
     minWidth: 0,
-    paddingRight: 28,
-    marginBottom: 0,
+    paddingRight: 12,
+  },
+  heroColumnStacked: {
+    alignSelf: "center",
+    maxWidth: 760,
   },
   brandRow: {
     flexDirection: "row",
@@ -464,7 +487,6 @@ const styles = StyleSheet.create({
   logo: {
     width: 84,
     height: 84,
-    resizeMode: "contain",
     marginRight: 16,
   },
   logoCompact: {
@@ -562,16 +584,27 @@ const styles = StyleSheet.create({
     paddingVertical: 24,
     borderWidth: 1,
     borderColor: agriPalette.border,
-    shadowColor: "#10251a",
-    shadowOffset: { width: 0, height: 18 },
-    shadowOpacity: 0.16,
-    shadowRadius: 28,
-    elevation: 6,
+    ...Platform.select({
+      web: {
+        boxShadow: "0px 24px 48px rgba(16, 37, 26, 0.18)",
+      },
+      default: {
+        shadowColor: "#10251a",
+        shadowOffset: { width: 0, height: 18 },
+        shadowOpacity: 0.16,
+        shadowRadius: 28,
+        elevation: 6,
+      },
+    }),
   },
   cardCompact: {
     borderRadius: 26,
     paddingHorizontal: 18,
     paddingVertical: 20,
+  },
+  cardStacked: {
+    width: "100%",
+    maxWidth: 520,
   },
   cardEyebrow: {
     color: agriPalette.field,

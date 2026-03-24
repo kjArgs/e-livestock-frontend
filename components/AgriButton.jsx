@@ -2,6 +2,7 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import {
   ActivityIndicator,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -122,11 +123,18 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     flexDirection: "row",
     alignItems: "center",
-    shadowColor: "#203126",
-    shadowOffset: { width: 0, height: 14 },
-    shadowOpacity: 0.12,
-    shadowRadius: 20,
-    elevation: 5,
+    ...Platform.select({
+      web: {
+        boxShadow: "0px 14px 24px rgba(32, 49, 38, 0.12)",
+      },
+      default: {
+        shadowColor: "#203126",
+        shadowOffset: { width: 0, height: 14 },
+        shadowOpacity: 0.12,
+        shadowRadius: 20,
+        elevation: 5,
+      },
+    }),
   },
   compactButton: {
     minHeight: 62,
