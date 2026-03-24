@@ -100,6 +100,8 @@ function LoginScreen() {
     !useSplitLayout &&
     width >= 900 &&
     height >= width * 1.28;
+  const useCenteredPortraitMonitorLayout =
+    usePortraitMonitorLayout && width >= 1180;
   const useWideStackedLayout =
     !useSplitLayout && !usePortraitMonitorLayout && isTabletWidth;
   const [username, setUsername] = useState("");
@@ -114,7 +116,7 @@ function LoginScreen() {
   const shouldCenterContent =
     !keyboardVisible &&
     (useSplitLayout ||
-      usePortraitMonitorLayout ||
+      useCenteredPortraitMonitorLayout ||
       (useWideStackedLayout && !isShortScreen));
 
   useEffect(() => {
@@ -611,7 +613,6 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     flexGrow: 1,
-    justifyContent: "center",
     paddingTop: 26,
   },
   scrollContentKeyboardOpen: {
@@ -684,8 +685,9 @@ const styles = StyleSheet.create({
     width: "100%",
   },
   brandRowPortraitMonitor: {
-    width: "auto",
-    maxWidth: "100%",
+    width: "100%",
+    maxWidth: 760,
+    alignSelf: "center",
     justifyContent: "center",
   },
   logo: {
@@ -707,8 +709,9 @@ const styles = StyleSheet.create({
     minWidth: 0,
   },
   brandTextWrapPortraitMonitor: {
-    flex: 0,
-    maxWidth: 540,
+    flex: 1,
+    minWidth: 0,
+    maxWidth: 600,
   },
   centeredHeroText: {
     textAlign: "center",
