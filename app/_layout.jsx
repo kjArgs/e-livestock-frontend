@@ -6,6 +6,7 @@ import {
   configureDeviceNotificationsAsync,
 } from "../lib/notifications/deviceNotifications";
 import AppAlertHost from "../components/AppAlertHost";
+import PwaInstallPrompt from "../components/PwaInstallPrompt";
 import StartupLoadingOverlay from "../components/StartupLoadingOverlay";
 import { installAppAlertOverride } from "../lib/appAlert";
 
@@ -81,6 +82,7 @@ export default function RootLayout() {
   return (
     <View style={styles.root}>
       <Slot />
+      <PwaInstallPrompt />
       <AppAlertHost />
       {!appReady ? <StartupLoadingOverlay /> : null}
     </View>

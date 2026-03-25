@@ -277,6 +277,7 @@ export default function Appointment() {
   const router = useRouter();
   const { width } = useWindowDimensions();
   const isWide = width >= 920;
+  const isCompact = width < 560;
 
   const [formId, setFormId] = useState(null);
   const [ownerName, setOwnerName] = useState("");
@@ -500,7 +501,7 @@ export default function Appointment() {
 
       <View style={styles.surfaceCard}>
         <View style={[styles.heroRow, isWide && styles.heroRowWide]}>
-          <View style={styles.heroCopy}>
+          <View style={[styles.heroCopy, isWide && styles.heroCopyWide]}>
             <Text style={styles.cardEyebrow}>Permit overview</Text>
             <Text style={styles.cardTitle}>Confirm permit</Text>
             <Text style={styles.cardCopy}>Check the linked record before booking.</Text>
@@ -537,7 +538,10 @@ export default function Appointment() {
                 compact
                 trailingIcon={false}
                 onPress={() => setShowPicker(true)}
-                style={styles.actionButton}
+                style={[
+                  styles.actionButton,
+                  isCompact && styles.actionButtonCompact,
+                ]}
               />
               <AgriButton
                 title="Refresh slots"
@@ -548,12 +552,15 @@ export default function Appointment() {
                 trailingIcon={false}
                 loading={loadingSlots}
                 onPress={refreshSlots}
-                style={styles.actionButton}
+                style={[
+                  styles.actionButton,
+                  isCompact && styles.actionButtonCompact,
+                ]}
               />
             </View>
           </View>
 
-          <View style={styles.highlightCard}>
+          <View style={[styles.highlightCard, isWide && styles.highlightCardWide]}>
             <Text style={styles.highlightEyebrow}>
               {nextSlot ? "Next opening" : "Date status"}
             </Text>
@@ -963,6 +970,9 @@ const styles = StyleSheet.create({
     flexDirection: "row",
   },
   heroCopy: {
+    minWidth: 0,
+  },
+  heroCopyWide: {
     flex: 1.1,
   },
   cardEyebrow: {
@@ -1028,13 +1038,19 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     minWidth: 220,
   },
+  actionButtonCompact: {
+    flexBasis: "100%",
+    minWidth: 0,
+  },
   highlightCard: {
-    flex: 0.9,
     borderRadius: 28,
     padding: 18,
     backgroundColor: "#F2E0A4",
     minHeight: 220,
     justifyContent: "space-between",
+  },
+  highlightCardWide: {
+    flex: 0.9,
   },
   highlightEyebrow: {
     color: "rgba(31,77,46,0.74)",
