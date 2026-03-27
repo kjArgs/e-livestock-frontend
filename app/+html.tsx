@@ -1,5 +1,14 @@
 import { ScrollViewStyleReset } from "expo-router/html";
 import type { PropsWithChildren } from "react";
+import {
+  SITE_DESCRIPTION,
+  SITE_NAME,
+  SITE_SHORT_NAME,
+  buildAbsoluteAssetUrl,
+  getGovernmentServiceSchema,
+  getOrganizationSchema,
+  getWebsiteSchema,
+} from "../lib/seo";
 
 const pwaBootstrapScript = `
 (() => {
@@ -58,28 +67,58 @@ const pwaBootstrapScript = `
 `;
 
 export default function Root({ children }: PropsWithChildren) {
+  const globalStructuredData = JSON.stringify([
+    getWebsiteSchema(),
+    getOrganizationSchema(),
+    getGovernmentServiceSchema(),
+  ]);
+
   return (
-    <html lang="en">
+    <html lang="en-PH">
       <head>
         <meta charSet="utf-8" />
         <meta httpEquiv="X-UA-Compatible" content="IE=edge" />
+        <title>{SITE_NAME}</title>
         <meta
           name="viewport"
           content="width=device-width, initial-scale=1, shrink-to-fit=no, viewport-fit=cover"
         />
         <meta name="theme-color" content="#1F4D2E" />
-        <meta
-          name="description"
-          content="Manage livestock permits, inspections, schedules, renewals, and alerts with e-Livestock Services for Sipocot."
-        />
-        <meta name="application-name" content="e-Livestock" />
+        <meta name="description" content={SITE_DESCRIPTION} />
+        <meta name="application-name" content={SITE_SHORT_NAME} />
+        <meta name="robots" content="index,follow" />
+        <meta name="googlebot" content="index,follow" />
+        <meta name="referrer" content="strict-origin-when-cross-origin" />
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
-        <meta name="apple-mobile-web-app-title" content="e-Livestock" />
+        <meta name="apple-mobile-web-app-title" content={SITE_SHORT_NAME} />
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
         <meta name="format-detection" content="telephone=no" />
+        <meta property="og:type" content="website" />
+        <meta property="og:site_name" content={SITE_SHORT_NAME} />
+        <meta property="og:title" content={SITE_NAME} />
+        <meta property="og:description" content={SITE_DESCRIPTION} />
+        <meta
+          property="og:image"
+          content={buildAbsoluteAssetUrl("/pwa-512.png")}
+        />
+        <meta property="og:image:alt" content={SITE_NAME} />
+        <meta property="og:locale" content="en_PH" />
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content={SITE_NAME} />
+        <meta name="twitter:description" content={SITE_DESCRIPTION} />
+        <meta
+          name="twitter:image"
+          content={buildAbsoluteAssetUrl("/pwa-512.png")}
+        />
+        <link rel="icon" href="/apple-touch-icon.png" />
         <link rel="manifest" href="/manifest.webmanifest" />
+        <link rel="sitemap" type="application/xml" href="/sitemap.xml" />
         <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: globalStructuredData }}
+        />
         <script dangerouslySetInnerHTML={{ __html: pwaBootstrapScript }} />
         <ScrollViewStyleReset />
       </head>

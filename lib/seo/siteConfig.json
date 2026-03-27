@@ -1,0 +1,56 @@
+{
+  "defaultSiteUrl": "https://e-livestock.tulongkabataanbicol.com",
+  "siteName": "e-Livestock Services for Sipocot",
+  "shortName": "e-Livestock",
+  "description": "Manage livestock permits, inspections, schedules, renewals, and alerts with e-Livestock Services for Sipocot.",
+  "language": "en",
+  "locale": "en_PH",
+  "organizationName": "Municipal Agriculture Office of Sipocot",
+  "organizationType": "GovernmentOrganization",
+  "serviceType": "Livestock permit and inspection service",
+  "serviceArea": "Sipocot, Camarines Sur, Philippines",
+  "logoPath": "/apple-touch-icon.png",
+  "imagePath": "/pwa-512.png",
+  "publicRoutes": [
+    {
+      "path": "/",
+      "changeFrequency": "weekly",
+      "priority": 1
+    },
+    {
+      "path": "/register",
+      "changeFrequency": "monthly",
+      "priority": 0.7
+    }
+  ],
+  "disallowPaths": [
+    "/_expo/",
+    "/_sitemap",
+    "/admin",
+    "/dashboard",
+    "/users",
+    "/schedules",
+    "/createAccount",
+    "/form",
+    "/dssRules",
+    "/addDss",
+    "/addDssRules",
+    "/inspectorAnalytics",
+    "/sendOtp",
+    "/verifyOtp",
+    "/resetPassword",
+    "/ownerDashboard",
+    "/livestockInspectorDashboard",
+    "/antemortemDashboard",
+    "/antemortemSchedules",
+    "/antemortemScanQRcode",
+    "/stockyard",
+    "/appointment",
+    "/checkSchedule",
+    "/createLivestockForm",
+    "/renewalRequests",
+    "/viewForms",
+    "/notifications",
+    "/settings"
+  ]
+}

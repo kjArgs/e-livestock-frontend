@@ -22,8 +22,15 @@ import {
 } from "react-native-paper";
 import AgriButton from "../components/AgriButton";
 import FeedbackBanner from "../components/FeedbackBanner";
+import SeoHead from "../components/SeoHead";
 import StartupLoadingOverlay from "../components/StartupLoadingOverlay";
 import { agriPalette, agriPaperTheme } from "../constants/agriTheme";
+import {
+  SITE_DESCRIPTION,
+  SITE_NAME,
+  getBreadcrumbSchema,
+  getWebPageSchema,
+} from "../lib/seo";
 import { apiRoutes, apiUrl } from "../lib/api";
 
 const API_URL = apiUrl(apiRoutes.auth.login);
@@ -319,277 +326,294 @@ function LoginScreen() {
     return <Redirect href={sessionDestination} />;
   }
 
-  return (
-    <LinearGradient
-      colors={[agriPalette.fieldDeep, agriPalette.field, agriPalette.cream]}
-      locations={[0, 0.44, 1]}
-      style={styles.root}
-    >
-      <View style={styles.glowTopLeft} />
-      <View style={styles.glowBottomRight} />
+  const pageTitle = `${SITE_NAME} | Livestock permits, inspections, and renewals`;
 
-      <KeyboardAvoidingView
-        style={styles.flex}
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-        keyboardVerticalOffset={Platform.OS === "ios" ? 20 : 12}
+  return (
+    <>
+      <SeoHead
+        title={pageTitle}
+        description={SITE_DESCRIPTION}
+        path="/"
+        schema={[
+          getWebPageSchema({
+            path: "/",
+            title: pageTitle,
+            description: SITE_DESCRIPTION,
+          }),
+          getBreadcrumbSchema([{ name: "Home", path: "/" }]),
+        ]}
+      />
+      <LinearGradient
+        colors={[agriPalette.fieldDeep, agriPalette.field, agriPalette.cream]}
+        locations={[0, 0.44, 1]}
+        style={styles.root}
       >
-        <ScrollView
-          ref={scrollViewRef}
-          keyboardShouldPersistTaps="handled"
-          keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={[
-            styles.scrollContent,
-            keyboardVisible && styles.scrollContentKeyboardOpen,
-            shouldCenterContent && styles.scrollContentCentered,
-            {
-              paddingTop: shouldCenterContent
-                ? 28
-                : isCompact
-                  ? 18
-                  : isTallPortrait
-                    ? 34
-                    : 24,
-              paddingBottom: keyboardVisible
-                ? keyboardHeight + 36
-                : shouldCenterContent
+        <View style={styles.glowTopLeft} />
+        <View style={styles.glowBottomRight} />
+
+        <KeyboardAvoidingView
+          style={styles.flex}
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          keyboardVerticalOffset={Platform.OS === "ios" ? 20 : 12}
+        >
+          <ScrollView
+            ref={scrollViewRef}
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={[
+              styles.scrollContent,
+              keyboardVisible && styles.scrollContentKeyboardOpen,
+              shouldCenterContent && styles.scrollContentCentered,
+              {
+                paddingTop: shouldCenterContent
                   ? 28
                   : isCompact
-                    ? 24
-                    : 32,
-            },
-          ]}
-        >
-          <View
-            style={[
-              styles.page,
-              usePortraitMonitorLayout && styles.pagePortraitMonitor,
-              useWideStackedLayout && styles.pageWideStacked,
-              isShortLandscape && styles.pageShortLandscape,
-              {
-                flexDirection: useSplitLayout ? "row" : "column",
-                alignItems:
-                  useSplitLayout || usePortraitMonitorLayout
-                    ? "center"
-                    : "stretch",
-                gap: useSplitLayout
-                  ? 40
-                  : usePortraitMonitorLayout
-                    ? 24
-                    : isShortLandscape
-                      ? 20
+                    ? 18
+                    : isTallPortrait
+                      ? 34
+                      : 24,
+                paddingBottom: keyboardVisible
+                  ? keyboardHeight + 36
+                  : shouldCenterContent
+                    ? 28
                     : isCompact
                       ? 24
-                      : 30,
-                paddingHorizontal: isCompact ? 16 : 20,
-                paddingVertical: isCompact
-                  ? 16
-                  : useSplitLayout
-                    ? 30
-                    : usePortraitMonitorLayout
-                      ? 24
-                      : isShortLandscape
-                        ? 16
-                      : 20,
+                      : 32,
               },
             ]}
           >
             <View
               style={[
-                styles.heroColumn,
-                useSplitLayout ? styles.heroColumnWide : styles.heroColumnStacked,
-                useWideStackedLayout && styles.heroColumnWideStacked,
-                usePortraitMonitorLayout && styles.heroColumnPortraitMonitor,
-                isShortLandscape && styles.heroColumnShortLandscape,
+                styles.page,
+                usePortraitMonitorLayout && styles.pagePortraitMonitor,
+                useWideStackedLayout && styles.pageWideStacked,
+                isShortLandscape && styles.pageShortLandscape,
+                {
+                  flexDirection: useSplitLayout ? "row" : "column",
+                  alignItems:
+                    useSplitLayout || usePortraitMonitorLayout
+                      ? "center"
+                      : "stretch",
+                  gap: useSplitLayout
+                    ? 40
+                    : usePortraitMonitorLayout
+                      ? 24
+                      : isShortLandscape
+                        ? 20
+                        : isCompact
+                          ? 24
+                          : 30,
+                  paddingHorizontal: isCompact ? 16 : 20,
+                  paddingVertical: isCompact
+                    ? 16
+                    : useSplitLayout
+                      ? 30
+                      : usePortraitMonitorLayout
+                        ? 24
+                        : isShortLandscape
+                          ? 16
+                          : 20,
+                },
               ]}
             >
               <View
                 style={[
-                  styles.brandRow,
-                  usePortraitMonitorLayout && styles.brandRowPortraitMonitor,
+                  styles.heroColumn,
+                  useSplitLayout ? styles.heroColumnWide : styles.heroColumnStacked,
+                  useWideStackedLayout && styles.heroColumnWideStacked,
+                  usePortraitMonitorLayout && styles.heroColumnPortraitMonitor,
+                  isShortLandscape && styles.heroColumnShortLandscape,
                 ]}
               >
-                <Image
-                  source={require("../assets/logo.png")}
-                  resizeMode="contain"
-                  style={[
-                    styles.logo,
-                    isCompact && styles.logoCompact,
-                    isShortLandscape && styles.logoShortLandscape,
-                  ]}
-                />
                 <View
                   style={[
-                    styles.brandTextWrap,
-                    usePortraitMonitorLayout && styles.brandTextWrapPortraitMonitor,
+                    styles.brandRow,
+                    usePortraitMonitorLayout && styles.brandRowPortraitMonitor,
                   ]}
                 >
-                  <Text
+                  <Image
+                    source={require("../assets/logo.png")}
+                    resizeMode="contain"
                     style={[
-                      styles.eyebrow,
-                      usePortraitMonitorLayout && styles.centeredHeroText,
+                      styles.logo,
+                      isCompact && styles.logoCompact,
+                      isShortLandscape && styles.logoShortLandscape,
+                    ]}
+                  />
+                  <View
+                    style={[
+                      styles.brandTextWrap,
+                      usePortraitMonitorLayout && styles.brandTextWrapPortraitMonitor,
                     ]}
                   >
-                    Municipal Agriculture Office
-                  </Text>
-                  <Text
-                    style={[
-                      styles.logoText,
-                      isCompact && styles.logoTextCompact,
-                      isShortLandscape && styles.logoTextShortLandscape,
-                      usePortraitMonitorLayout && styles.centeredHeroText,
-                    ]}
+                    <Text
+                      style={[
+                        styles.eyebrow,
+                        usePortraitMonitorLayout && styles.centeredHeroText,
+                      ]}
+                    >
+                      Municipal Agriculture Office
+                    </Text>
+                    <Text
+                      style={[
+                        styles.logoText,
+                        isCompact && styles.logoTextCompact,
+                        isShortLandscape && styles.logoTextShortLandscape,
+                        usePortraitMonitorLayout && styles.centeredHeroText,
+                      ]}
                   >
-                    e-Livestock services for Sipocot
+                      e-Livestock services for Sipocot
+                    </Text>
+                  </View>
+                </View>
+
+                <View
+                  style={[
+                    styles.heroPill,
+                    usePortraitMonitorLayout && styles.heroPillCentered,
+                    isShortLandscape && styles.heroPillShortLandscape,
+                  ]}
+                >
+                  <MaterialCommunityIcons
+                    name="sprout"
+                    size={18}
+                    color={agriPalette.white}
+                  />
+                  <Text style={styles.heroPillText}>
+                    Connected livestock records
                   </Text>
+                </View>
+
+                <Text
+                  style={[
+                    styles.heroTitle,
+                    isCompact && styles.heroTitleCompact,
+                    isShortLandscape && styles.heroTitleShortLandscape,
+                    usePortraitMonitorLayout && styles.centeredHeroText,
+                  ]}
+                >
+                  Modern field access for permits, schedules, and inspections.
+                </Text>
+                <Text
+                  style={[
+                    styles.heroSubtitle,
+                    isCompact && styles.heroSubtitleCompact,
+                    isShortLandscape && styles.heroSubtitleShortLandscape,
+                    usePortraitMonitorLayout && styles.centeredHeroText,
+                  ]}
+                >
+                  Sign in to manage livestock documents with a cleaner,
+                  agriculture-led dashboard experience.
+                </Text>
+
+                <View
+                  style={[
+                    styles.heroChipRow,
+                    usePortraitMonitorLayout && styles.heroChipRowCentered,
+                    isShortLandscape && styles.heroChipRowShortLandscape,
+                  ]}
+                >
+                  <InfoChip label="Permit tracking" />
+                  <InfoChip label="Inspection status" />
+                  <InfoChip label="QR-ready records" />
                 </View>
               </View>
 
               <View
                 style={[
-                  styles.heroPill,
-                  usePortraitMonitorLayout && styles.heroPillCentered,
-                  isShortLandscape && styles.heroPillShortLandscape,
+                  styles.card,
+                  isCompact && styles.cardCompact,
+                  !useSplitLayout && styles.cardStacked,
+                  useWideStackedLayout && styles.cardWideStacked,
+                  usePortraitMonitorLayout && styles.cardPortraitMonitor,
+                  isShortLandscape && styles.cardShortLandscape,
+                  { backgroundColor: colors.surface },
                 ]}
               >
-                <MaterialCommunityIcons
-                  name="sprout"
-                  size={18}
-                  color={agriPalette.white}
-                />
-                <Text style={styles.heroPillText}>
-                  Connected livestock records
+                <Text style={styles.cardEyebrow}>Secure sign in</Text>
+
+                <Text style={[styles.cardTitle, { color: colors.onSurface }]}>
+                  Welcome back
                 </Text>
-              </View>
+                <Text style={styles.cardSubtitle}>
+                  Access your e-Livestock account and continue your field
+                  operations.
+                </Text>
 
-              <Text
-                style={[
-                  styles.heroTitle,
-                  isCompact && styles.heroTitleCompact,
-                  isShortLandscape && styles.heroTitleShortLandscape,
-                  usePortraitMonitorLayout && styles.centeredHeroText,
-                ]}
-              >
-                Modern field access for permits, schedules, and inspections.
-              </Text>
-              <Text
-                style={[
-                  styles.heroSubtitle,
-                  isCompact && styles.heroSubtitleCompact,
-                  isShortLandscape && styles.heroSubtitleShortLandscape,
-                  usePortraitMonitorLayout && styles.centeredHeroText,
-                ]}
-              >
-                Sign in to manage livestock documents with a cleaner,
-                agriculture-led dashboard experience.
-              </Text>
-
-              <View
-                style={[
-                  styles.heroChipRow,
-                  usePortraitMonitorLayout && styles.heroChipRowCentered,
-                  isShortLandscape && styles.heroChipRowShortLandscape,
-                ]}
-              >
-                <InfoChip label="Permit tracking" />
-                <InfoChip label="Inspection status" />
-                <InfoChip label="QR-ready records" />
-              </View>
-            </View>
-
-            <View
-              style={[
-                styles.card,
-                isCompact && styles.cardCompact,
-                !useSplitLayout && styles.cardStacked,
-                useWideStackedLayout && styles.cardWideStacked,
-                usePortraitMonitorLayout && styles.cardPortraitMonitor,
-                isShortLandscape && styles.cardShortLandscape,
-                { backgroundColor: colors.surface },
-              ]}
-            >
-              <Text style={styles.cardEyebrow}>Secure sign in</Text>
-
-              <Text style={[styles.cardTitle, { color: colors.onSurface }]}>
-                Welcome back
-              </Text>
-              <Text style={styles.cardSubtitle}>
-                Access your e-Livestock account and continue your field
-                operations.
-              </Text>
-
-              {notice ? (
-                <FeedbackBanner
-                  tone={notice.tone}
-                  title={notice.title}
-                  message={notice.message}
-                  style={styles.noticeBanner}
-                />
-              ) : null}
-
-              <TextInput
-                label="Username"
-                mode="outlined"
-                value={username}
-                onChangeText={setUsername}
-                onFocus={() => focusFormField(290)}
-                style={styles.input}
-                left={<TextInput.Icon icon="account" />}
-                outlineColor={colors.outline}
-                activeOutlineColor={colors.primary}
-              />
-
-              <TextInput
-                label="Password"
-                mode="outlined"
-                secureTextEntry={secureText}
-                value={password}
-                onChangeText={setPassword}
-                onFocus={() => focusFormField(340)}
-                style={styles.input}
-                left={<TextInput.Icon icon="lock" />}
-                right={
-                  <TextInput.Icon
-                    icon={secureText ? "eye-off" : "eye"}
-                    onPress={() => setSecureText(!secureText)}
+                {notice ? (
+                  <FeedbackBanner
+                    tone={notice.tone}
+                    title={notice.title}
+                    message={notice.message}
+                    style={styles.noticeBanner}
                   />
-                }
-                outlineColor={colors.outline}
-                activeOutlineColor={colors.primary}
-              />
+                ) : null}
 
-              <TouchableOpacity
-                onPress={() => router.push("/sendOtp")}
-                style={styles.linkWrap}
-              >
-                <Text variant="bodySmall" style={styles.linkText}>
-                  Forgot password?
-                </Text>
-              </TouchableOpacity>
+                <TextInput
+                  label="Username"
+                  mode="outlined"
+                  value={username}
+                  onChangeText={setUsername}
+                  onFocus={() => focusFormField(290)}
+                  style={styles.input}
+                  left={<TextInput.Icon icon="account" />}
+                  outlineColor={colors.outline}
+                  activeOutlineColor={colors.primary}
+                />
 
-              <AgriButton
-                title="Login"
-                subtitle="Open your livestock dashboard"
-                icon="login"
-                onPress={handleLogin}
-                loading={loading}
-              />
+                <TextInput
+                  label="Password"
+                  mode="outlined"
+                  secureTextEntry={secureText}
+                  value={password}
+                  onChangeText={setPassword}
+                  onFocus={() => focusFormField(340)}
+                  style={styles.input}
+                  left={<TextInput.Icon icon="lock" />}
+                  right={
+                    <TextInput.Icon
+                      icon={secureText ? "eye-off" : "eye"}
+                      onPress={() => setSecureText(!secureText)}
+                    />
+                  }
+                  outlineColor={colors.outline}
+                  activeOutlineColor={colors.primary}
+                />
 
-              <View style={styles.signupContainer}>
-                <Text variant="bodyMedium" style={styles.signupText}>
-                  Do not have an account?
-                </Text>
-                <TouchableOpacity onPress={() => router.push("/register")}>
-                  <Text variant="bodyMedium" style={styles.signupLink}>
-                    Sign up here
+                <TouchableOpacity
+                  onPress={() => router.push("/sendOtp")}
+                  style={styles.linkWrap}
+                >
+                  <Text variant="bodySmall" style={styles.linkText}>
+                    Forgot password?
                   </Text>
                 </TouchableOpacity>
+
+                <AgriButton
+                  title="Login"
+                  subtitle="Open your livestock dashboard"
+                  icon="login"
+                  onPress={handleLogin}
+                  loading={loading}
+                />
+
+                <View style={styles.signupContainer}>
+                  <Text variant="bodyMedium" style={styles.signupText}>
+                    Do not have an account?
+                  </Text>
+                  <TouchableOpacity onPress={() => router.push("/register")}>
+                    <Text variant="bodyMedium" style={styles.signupLink}>
+                      Sign up here
+                    </Text>
+                  </TouchableOpacity>
+                </View>
               </View>
             </View>
-          </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
-    </LinearGradient>
+          </ScrollView>
+        </KeyboardAvoidingView>
+      </LinearGradient>
+    </>
   );
 }
 

@@ -6,6 +6,7 @@ import { TextInput } from "react-native-paper";
 import AgriButton from "../../components/AgriButton";
 import AuthRecoveryShell from "../../components/AuthRecoveryShell";
 import FeedbackBanner from "../../components/FeedbackBanner";
+import SeoHead from "../../components/SeoHead";
 import { apiRoutes, apiUrl } from "../../lib/api";
 import { agriPalette } from "../../constants/agriTheme";
 
@@ -20,6 +21,9 @@ export default function SendOtp() {
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [notice, setNotice] = useState(null);
+  const pageTitle = "Password Recovery | e-Livestock";
+  const pageDescription =
+    "Start the password reset process for your e-Livestock account.";
 
   const sendOTP = async () => {
     const trimmedEmail = email.trim().toLowerCase();
@@ -89,86 +93,94 @@ export default function SendOtp() {
   };
 
   return (
-    <AuthRecoveryShell
-      eyebrow="Forgot password"
-      title="Get a recovery code"
-      subtitle="Enter your account email to receive a one-time password."
-      step={1}
-    >
-      <Text style={styles.sectionEyebrow}>Email recovery</Text>
-      <Text style={styles.sectionTitle}>Send code</Text>
-      <Text style={styles.sectionCopy}>Use your registered email.</Text>
+    <>
+      <SeoHead
+        title={pageTitle}
+        description={pageDescription}
+        path="/sendOtp"
+        robots="noindex,nofollow"
+      />
+      <AuthRecoveryShell
+        eyebrow="Forgot password"
+        title="Get a recovery code"
+        subtitle="Enter your account email to receive a one-time password."
+        step={1}
+      >
+        <Text style={styles.sectionEyebrow}>Email recovery</Text>
+        <Text style={styles.sectionTitle}>Send code</Text>
+        <Text style={styles.sectionCopy}>Use your registered email.</Text>
 
-      {notice ? (
-        <FeedbackBanner
-          tone={notice.tone}
-          title={notice.title}
-          message={notice.message}
-          style={styles.noticeBanner}
+        {notice ? (
+          <FeedbackBanner
+            tone={notice.tone}
+            title={notice.title}
+            message={notice.message}
+            style={styles.noticeBanner}
+          />
+        ) : null}
+
+        <View style={styles.infoCard}>
+          <View style={styles.infoIconWrap}>
+            <MaterialCommunityIcons
+              name="email-check-outline"
+              size={20}
+              color={agriPalette.fieldDeep}
+            />
+          </View>
+          <View style={styles.infoTextWrap}>
+            <Text style={styles.infoTitle}>Email on file</Text>
+            <Text style={styles.infoCopy}>The code is sent only to the saved account email.</Text>
+          </View>
+        </View>
+
+        <TextInput
+          label="Email address"
+          mode="outlined"
+          value={email}
+          onChangeText={setEmail}
+          autoCapitalize="none"
+          keyboardType="email-address"
+          autoComplete="email"
+          left={<TextInput.Icon icon="email-outline" />}
+          style={styles.input}
+          outlineColor={agriPalette.border}
+          activeOutlineColor={agriPalette.field}
+          contentStyle={styles.inputContent}
+          theme={{
+            colors: {
+              background: agriPalette.surface,
+            },
+          }}
         />
-      ) : null}
 
-      <View style={styles.infoCard}>
-        <View style={styles.infoIconWrap}>
+        <View style={styles.tipBox}>
           <MaterialCommunityIcons
-            name="email-check-outline"
-            size={20}
-            color={agriPalette.fieldDeep}
+            name="shield-lock-outline"
+            size={18}
+            color={agriPalette.field}
+          />
+          <Text style={styles.tipText}>Check inbox and spam.</Text>
+        </View>
+
+        <View style={styles.actionStack}>
+          <AgriButton
+            title="Send OTP"
+            icon="send-outline"
+            loading={loading}
+            disabled={loading}
+            onPress={sendOTP}
+          />
+          <AgriButton
+            title="Back to login"
+            icon="arrow-left"
+            variant="secondary"
+            trailingIcon={false}
+            disabled={loading}
+            onPress={() => router.replace("/")}
           />
         </View>
-        <View style={styles.infoTextWrap}>
-          <Text style={styles.infoTitle}>Email on file</Text>
-          <Text style={styles.infoCopy}>The code is sent only to the saved account email.</Text>
-        </View>
-      </View>
-
-      <TextInput
-        label="Email address"
-        mode="outlined"
-        value={email}
-        onChangeText={setEmail}
-        autoCapitalize="none"
-        keyboardType="email-address"
-        autoComplete="email"
-        left={<TextInput.Icon icon="email-outline" />}
-        style={styles.input}
-        outlineColor={agriPalette.border}
-        activeOutlineColor={agriPalette.field}
-        contentStyle={styles.inputContent}
-        theme={{
-          colors: {
-            background: agriPalette.surface,
-          },
-        }}
-      />
-
-      <View style={styles.tipBox}>
-        <MaterialCommunityIcons
-          name="shield-lock-outline"
-          size={18}
-          color={agriPalette.field}
-        />
-        <Text style={styles.tipText}>Check inbox and spam.</Text>
-      </View>
-
-      <View style={styles.actionStack}>
-        <AgriButton
-          title="Send OTP"
-          icon="send-outline"
-          loading={loading}
-          disabled={loading}
-          onPress={sendOTP}
-        />
-        <AgriButton
-          title="Back to login"
-          icon="arrow-left"
-          variant="secondary"
-          trailingIcon={false}
-          disabled={loading}
-          onPress={() => router.replace("/")}
-        />
-      </View>
-    </AuthRecoveryShell>
+      </AuthRecoveryShell>
+    </>
   );
 }
 

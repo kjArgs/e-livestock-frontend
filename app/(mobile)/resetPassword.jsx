@@ -6,6 +6,7 @@ import { TextInput } from "react-native-paper";
 import AgriButton from "../../components/AgriButton";
 import AuthRecoveryShell from "../../components/AuthRecoveryShell";
 import FeedbackBanner from "../../components/FeedbackBanner";
+import SeoHead from "../../components/SeoHead";
 import { apiRoutes, apiUrl } from "../../lib/api";
 import { agriPalette } from "../../constants/agriTheme";
 
@@ -29,6 +30,9 @@ export default function ResetPassword() {
   const [securePassword, setSecurePassword] = useState(true);
   const [secureConfirm, setSecureConfirm] = useState(true);
   const [notice, setNotice] = useState(null);
+  const pageTitle = "Reset Your Password | e-Livestock";
+  const pageDescription =
+    "Set a new password for your e-Livestock account after verifying your recovery code.";
 
   useEffect(() => {
     if (!email) {
@@ -120,112 +124,120 @@ export default function ResetPassword() {
   };
 
   return (
-    <AuthRecoveryShell
-      eyebrow="Reset password"
-      title="Reset password"
-      subtitle="Set a new password for your account."
-      step={3}
-    >
-      <Text style={styles.sectionEyebrow}>Password update</Text>
-      <Text style={styles.sectionTitle}>Set a new password</Text>
-      <Text style={styles.sectionCopy}>Use at least 6 characters and confirm it below.</Text>
-
-      {notice ? (
-        <FeedbackBanner
-          tone={notice.tone}
-          title={notice.title}
-          message={notice.message}
-          style={styles.noticeBanner}
-        />
-      ) : null}
-
-      <View style={styles.accountCard}>
-        <View style={styles.accountIconWrap}>
-          <MaterialCommunityIcons
-            name="account-lock-outline"
-            size={20}
-            color={agriPalette.fieldDeep}
-          />
-        </View>
-        <View style={styles.accountTextWrap}>
-          <Text style={styles.accountLabel}>Account</Text>
-          <Text style={styles.accountValue}>{email || "Email not available"}</Text>
-        </View>
-      </View>
-
-      <TextInput
-        label="New password"
-        mode="outlined"
-        secureTextEntry={securePassword}
-        value={password}
-        onChangeText={setPassword}
-        autoCapitalize="none"
-        left={<TextInput.Icon icon="lock-outline" />}
-        right={
-          <TextInput.Icon
-            icon={securePassword ? "eye-off-outline" : "eye-outline"}
-            onPress={() => setSecurePassword((current) => !current)}
-          />
-        }
-        style={styles.input}
-        outlineColor={agriPalette.border}
-        activeOutlineColor={agriPalette.field}
-        theme={{
-          colors: {
-            background: agriPalette.surface,
-          },
-        }}
+    <>
+      <SeoHead
+        title={pageTitle}
+        description={pageDescription}
+        path="/resetPassword"
+        robots="noindex,nofollow"
       />
+      <AuthRecoveryShell
+        eyebrow="Reset password"
+        title="Reset password"
+        subtitle="Set a new password for your account."
+        step={3}
+      >
+        <Text style={styles.sectionEyebrow}>Password update</Text>
+        <Text style={styles.sectionTitle}>Set a new password</Text>
+        <Text style={styles.sectionCopy}>Use at least 6 characters and confirm it below.</Text>
 
-      <TextInput
-        label="Confirm new password"
-        mode="outlined"
-        secureTextEntry={secureConfirm}
-        value={confirm}
-        onChangeText={setConfirm}
-        autoCapitalize="none"
-        left={<TextInput.Icon icon="shield-check-outline" />}
-        right={
-          <TextInput.Icon
-            icon={secureConfirm ? "eye-off-outline" : "eye-outline"}
-            onPress={() => setSecureConfirm((current) => !current)}
+        {notice ? (
+          <FeedbackBanner
+            tone={notice.tone}
+            title={notice.title}
+            message={notice.message}
+            style={styles.noticeBanner}
           />
-        }
-        style={styles.inputSecondary}
-        outlineColor={agriPalette.border}
-        activeOutlineColor={agriPalette.field}
-        theme={{
-          colors: {
-            background: agriPalette.surface,
-          },
-        }}
-      />
+        ) : null}
 
-      <View style={styles.requirementsCard}>
-        <Text style={styles.requirementsTitle}>Checklist</Text>
-        <RequirementRow label="At least 6 characters" />
-        <RequirementRow label="Keep it private" />
-        <RequirementRow label="Both fields match" />
-      </View>
+        <View style={styles.accountCard}>
+          <View style={styles.accountIconWrap}>
+            <MaterialCommunityIcons
+              name="account-lock-outline"
+              size={20}
+              color={agriPalette.fieldDeep}
+            />
+          </View>
+          <View style={styles.accountTextWrap}>
+            <Text style={styles.accountLabel}>Account</Text>
+            <Text style={styles.accountValue}>{email || "Email not available"}</Text>
+          </View>
+        </View>
 
-      <View style={styles.actionStack}>
-        <AgriButton
-          title="Update password"
-          icon="lock-reset"
-          loading={loading}
-          disabled={loading}
-          onPress={resetPassword}
+        <TextInput
+          label="New password"
+          mode="outlined"
+          secureTextEntry={securePassword}
+          value={password}
+          onChangeText={setPassword}
+          autoCapitalize="none"
+          left={<TextInput.Icon icon="lock-outline" />}
+          right={
+            <TextInput.Icon
+              icon={securePassword ? "eye-off-outline" : "eye-outline"}
+              onPress={() => setSecurePassword((current) => !current)}
+            />
+          }
+          style={styles.input}
+          outlineColor={agriPalette.border}
+          activeOutlineColor={agriPalette.field}
+          theme={{
+            colors: {
+              background: agriPalette.surface,
+            },
+          }}
         />
-        <AgriButton
-          title="Back to login"
+
+        <TextInput
+          label="Confirm new password"
+          mode="outlined"
+          secureTextEntry={secureConfirm}
+          value={confirm}
+          onChangeText={setConfirm}
+          autoCapitalize="none"
+          left={<TextInput.Icon icon="shield-check-outline" />}
+          right={
+            <TextInput.Icon
+              icon={secureConfirm ? "eye-off-outline" : "eye-outline"}
+              onPress={() => setSecureConfirm((current) => !current)}
+            />
+          }
+          style={styles.inputSecondary}
+          outlineColor={agriPalette.border}
+          activeOutlineColor={agriPalette.field}
+          theme={{
+            colors: {
+              background: agriPalette.surface,
+            },
+          }}
+        />
+
+        <View style={styles.requirementsCard}>
+          <Text style={styles.requirementsTitle}>Checklist</Text>
+          <RequirementRow label="At least 6 characters" />
+          <RequirementRow label="Keep it private" />
+          <RequirementRow label="Both fields match" />
+        </View>
+
+        <View style={styles.actionStack}>
+          <AgriButton
+            title="Update password"
+            icon="lock-reset"
+            loading={loading}
+            disabled={loading}
+            onPress={resetPassword}
+          />
+          <AgriButton
+            title="Back to login"
           icon="arrow-left"
           variant="secondary"
           trailingIcon={false}
           disabled={loading}
           onPress={() => router.replace("/")}
-        />
-      </View>
-    </AuthRecoveryShell>
+          />
+        </View>
+      </AuthRecoveryShell>
+    </>
   );
 }
 

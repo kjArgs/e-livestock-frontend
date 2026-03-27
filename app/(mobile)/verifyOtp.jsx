@@ -6,6 +6,7 @@ import { TextInput } from "react-native-paper";
 import AgriButton from "../../components/AgriButton";
 import AuthRecoveryShell from "../../components/AuthRecoveryShell";
 import FeedbackBanner from "../../components/FeedbackBanner";
+import SeoHead from "../../components/SeoHead";
 import { apiRoutes, apiUrl } from "../../lib/api";
 import { agriPalette } from "../../constants/agriTheme";
 
@@ -28,6 +29,12 @@ export default function VerifyOtp() {
   const [otp, setOtp] = useState("");
   const [loading, setLoading] = useState(false);
   const [notice, setNotice] = useState(null);
+  const pageTitle = isRegisterFlow
+    ? "Verify Your Email Code | e-Livestock"
+    : "Verify Your Recovery Code | e-Livestock";
+  const pageDescription = isRegisterFlow
+    ? "Verify your e-Livestock registration email code to finish setting up your account."
+    : "Verify your e-Livestock password recovery code to continue resetting your account password.";
 
   useEffect(() => {
     if (!email) {
@@ -111,105 +118,113 @@ export default function VerifyOtp() {
   };
 
   return (
-    <AuthRecoveryShell
-      eyebrow={isRegisterFlow ? "Email verification" : "OTP verification"}
-      title={isRegisterFlow ? "Confirm your email code" : "Confirm your recovery code"}
-      subtitle={
-        isRegisterFlow
-          ? "Enter the one-time password sent after account registration."
-          : "Enter the one-time password sent to your email."
-      }
-      step={2}
-    >
-      <Text style={styles.sectionEyebrow}>Verification</Text>
-      <Text style={styles.sectionTitle}>
-        {isRegisterFlow ? "Enter your email code" : "Enter the OTP"}
-      </Text>
-      <Text style={styles.sectionCopy}>
-        {isRegisterFlow
-          ? "Use the 6-digit code from your verification email."
-          : "Use the 6-digit code from your email."}
-      </Text>
+    <>
+      <SeoHead
+        title={pageTitle}
+        description={pageDescription}
+        path="/verifyOtp"
+        robots="noindex,nofollow"
+      />
+      <AuthRecoveryShell
+        eyebrow={isRegisterFlow ? "Email verification" : "OTP verification"}
+        title={isRegisterFlow ? "Confirm your email code" : "Confirm your recovery code"}
+        subtitle={
+          isRegisterFlow
+            ? "Enter the one-time password sent after account registration."
+            : "Enter the one-time password sent to your email."
+        }
+        step={2}
+      >
+        <Text style={styles.sectionEyebrow}>Verification</Text>
+        <Text style={styles.sectionTitle}>
+          {isRegisterFlow ? "Enter your email code" : "Enter the OTP"}
+        </Text>
+        <Text style={styles.sectionCopy}>
+          {isRegisterFlow
+            ? "Use the 6-digit code from your verification email."
+            : "Use the 6-digit code from your email."}
+        </Text>
 
-      {notice ? (
-        <FeedbackBanner
-          tone={notice.tone}
-          title={notice.title}
-          message={notice.message}
-          style={styles.noticeBanner}
+        {notice ? (
+          <FeedbackBanner
+            tone={notice.tone}
+            title={notice.title}
+            message={notice.message}
+            style={styles.noticeBanner}
+          />
+        ) : null}
+
+        <View style={styles.emailCard}>
+          <View style={styles.emailIconWrap}>
+            <MaterialCommunityIcons
+              name="email-lock-outline"
+              size={20}
+              color={agriPalette.fieldDeep}
+            />
+          </View>
+          <View style={styles.emailTextWrap}>
+            <Text style={styles.emailLabel}>
+              {isRegisterFlow ? "Verification sent to" : "Sent to"}
+            </Text>
+            <Text style={styles.emailValue}>{email || "Email not available"}</Text>
+            <Text style={styles.emailHint}>
+              One code only. It stays valid for 10 minutes.
+            </Text>
+          </View>
+        </View>
+
+        <TextInput
+          label="6-digit OTP"
+          mode="outlined"
+          value={otp}
+          onChangeText={(value) => setOtp(value.replace(/\D/g, "").slice(0, 6))}
+          keyboardType="number-pad"
+          maxLength={6}
+          left={<TextInput.Icon icon="shield-key-outline" />}
+          style={styles.input}
+          outlineColor={agriPalette.border}
+          activeOutlineColor={agriPalette.field}
+          contentStyle={styles.otpInputContent}
+          theme={{
+            colors: {
+              background: agriPalette.surface,
+            },
+          }}
         />
-      ) : null}
 
-      <View style={styles.emailCard}>
-        <View style={styles.emailIconWrap}>
+        <View style={styles.tipBox}>
           <MaterialCommunityIcons
-            name="email-lock-outline"
-            size={20}
-            color={agriPalette.fieldDeep}
+            name="timer-sand"
+            size={18}
+            color={agriPalette.wheat}
+          />
+          <Text style={styles.tipText}>
+            Check inbox and spam first.{" "}
+            {isRegisterFlow
+              ? "If the email address is wrong, go back to sign up and correct it."
+              : "If the code expired, go back and request a new one."}
+          </Text>
+        </View>
+
+        <View style={styles.actionStack}>
+          <AgriButton
+            title={isRegisterFlow ? "Verify email" : "Verify OTP"}
+            icon="check-decagram-outline"
+            loading={loading}
+            disabled={loading}
+            onPress={handleVerifyOtp}
+          />
+          <AgriButton
+            title="Back"
+            icon="arrow-left"
+            variant="secondary"
+            trailingIcon={false}
+            disabled={loading}
+            onPress={() => router.replace(isRegisterFlow ? "/register" : "/sendOtp")}
           />
         </View>
-        <View style={styles.emailTextWrap}>
-          <Text style={styles.emailLabel}>
-            {isRegisterFlow ? "Verification sent to" : "Sent to"}
-          </Text>
-          <Text style={styles.emailValue}>{email || "Email not available"}</Text>
-          <Text style={styles.emailHint}>
-            One code only. It stays valid for 10 minutes.
-          </Text>
-        </View>
-      </View>
-
-      <TextInput
-        label="6-digit OTP"
-        mode="outlined"
-        value={otp}
-        onChangeText={(value) => setOtp(value.replace(/\D/g, "").slice(0, 6))}
-        keyboardType="number-pad"
-        maxLength={6}
-        left={<TextInput.Icon icon="shield-key-outline" />}
-        style={styles.input}
-        outlineColor={agriPalette.border}
-        activeOutlineColor={agriPalette.field}
-        contentStyle={styles.otpInputContent}
-        theme={{
-          colors: {
-            background: agriPalette.surface,
-          },
-        }}
-      />
-
-      <View style={styles.tipBox}>
-        <MaterialCommunityIcons
-          name="timer-sand"
-          size={18}
-          color={agriPalette.wheat}
-        />
-        <Text style={styles.tipText}>
-          Check inbox and spam first.{" "}
-          {isRegisterFlow
-            ? "If the email address is wrong, go back to sign up and correct it."
-            : "If the code expired, go back and request a new one."}
-        </Text>
-      </View>
-
-      <View style={styles.actionStack}>
-        <AgriButton
-          title={isRegisterFlow ? "Verify email" : "Verify OTP"}
-          icon="check-decagram-outline"
-          loading={loading}
-          disabled={loading}
-          onPress={handleVerifyOtp}
-        />
-        <AgriButton
-          title="Back"
-          icon="arrow-left"
-          variant="secondary"
-          trailingIcon={false}
-          disabled={loading}
-          onPress={() => router.replace(isRegisterFlow ? "/register" : "/sendOtp")}
-        />
-      </View>
-    </AuthRecoveryShell>
+      </AuthRecoveryShell>
+    </>
   );
 }
 

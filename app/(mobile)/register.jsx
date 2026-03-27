@@ -20,8 +20,13 @@ import {
 } from "react-native-paper";
 import AgriButton from "../../components/AgriButton";
 import FeedbackBanner from "../../components/FeedbackBanner";
+import SeoHead from "../../components/SeoHead";
 import { apiRoutes, apiUrl } from "../../lib/api";
 import { agriPaperTheme, agriPalette } from "../../constants/agriTheme";
+import {
+  getBreadcrumbSchema,
+  getWebPageSchema,
+} from "../../lib/seo";
 
 const API_URL = apiUrl(apiRoutes.auth.register);
 const REGISTRATION_FIELD_LABELS = {
@@ -141,6 +146,9 @@ function RegisterScreen() {
   const [secureText, setSecureText] = useState(true);
   const [notice, setNotice] = useState(null);
   const [fieldErrors, setFieldErrors] = useState(createEmptyFieldErrors());
+  const pageTitle = "Create an e-Livestock Account | Sipocot Livestock Services";
+  const pageDescription =
+    "Create an e-Livestock account to request livestock permits, track inspections, and manage renewals in Sipocot.";
 
   const clearFieldError = (field) => {
     setFieldErrors((current) =>
@@ -256,102 +264,119 @@ function RegisterScreen() {
     ) : null;
 
   return (
-    <LinearGradient
-      colors={[agriPalette.fieldDeep, agriPalette.field, agriPalette.cream]}
-      locations={[0, 0.44, 1]}
-      style={styles.root}
-    >
-      <View style={styles.glowTopLeft} />
-      <View style={styles.glowBottomRight} />
-
-      <KeyboardAvoidingView
-        style={styles.flex}
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
+    <>
+      <SeoHead
+        title={pageTitle}
+        description={pageDescription}
+        path="/register"
+        schema={[
+          getWebPageSchema({
+            path: "/register",
+            title: pageTitle,
+            description: pageDescription,
+          }),
+          getBreadcrumbSchema([
+            { name: "Home", path: "/" },
+            { name: "Register", path: "/register" },
+          ]),
+        ]}
+      />
+      <LinearGradient
+        colors={[agriPalette.fieldDeep, agriPalette.field, agriPalette.cream]}
+        locations={[0, 0.44, 1]}
+        style={styles.root}
       >
-        <ScrollView
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.scrollContent}
+        <View style={styles.glowTopLeft} />
+        <View style={styles.glowBottomRight} />
+
+        <KeyboardAvoidingView
+          style={styles.flex}
+          behavior={Platform.OS === "ios" ? "padding" : undefined}
         >
-          <View
-            style={[
-              styles.page,
-              {
-                flexDirection: isWide ? "row" : "column",
-                alignItems: isWide ? "center" : "stretch",
-                paddingHorizontal: isCompact ? 16 : 20,
-                paddingVertical: isCompact ? 18 : 30,
-              },
-            ]}
+          <ScrollView
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={styles.scrollContent}
           >
-            <View style={[styles.heroColumn, isWide && styles.heroColumnWide]}>
-              <View style={styles.brandRow}>
-                <Image
-                  source={require("../../assets/logo.png")}
-                  style={[styles.logo, isCompact && styles.logoCompact]}
-                />
-                <View style={styles.brandTextWrap}>
-                  <Text style={styles.eyebrow}>Municipal Agriculture Office</Text>
-                  <Text
-                    style={[styles.logoText, isCompact && styles.logoTextCompact]}
-                  >
-                    Create your e-Livestock account
-                  </Text>
+            <View
+              style={[
+                styles.page,
+                {
+                  flexDirection: isWide ? "row" : "column",
+                  alignItems: isWide ? "center" : "stretch",
+                  paddingHorizontal: isCompact ? 16 : 20,
+                  paddingVertical: isCompact ? 18 : 30,
+                },
+              ]}
+            >
+              <View style={[styles.heroColumn, isWide && styles.heroColumnWide]}>
+                <View style={styles.brandRow}>
+                  <Image
+                    source={require("../../assets/logo.png")}
+                    style={[styles.logo, isCompact && styles.logoCompact]}
+                  />
+                  <View style={styles.brandTextWrap}>
+                    <Text style={styles.eyebrow}>Municipal Agriculture Office</Text>
+                    <Text
+                      style={[styles.logoText, isCompact && styles.logoTextCompact]}
+                    >
+                      Create your e-Livestock account
+                    </Text>
+                  </View>
+                </View>
+
+                <View style={styles.heroPill}>
+                  <MaterialCommunityIcons
+                    name="account-plus-outline"
+                    size={18}
+                    color={agriPalette.white}
+                  />
+                  <Text style={styles.heroPillText}>Owner onboarding flow</Text>
+                </View>
+
+                <Text style={[styles.heroTitle, isCompact && styles.heroTitleCompact]}>
+                  Register once and manage permits, schedules, and QR-ready records
+                  from one place.
+                </Text>
+                <Text
+                  style={[
+                    styles.heroSubtitle,
+                    isCompact && styles.heroSubtitleCompact,
+                  ]}
+                >
+                  Build your livestock owner account with a cleaner mobile-first
+                  signup experience, then verify your email to unlock the full
+                  dashboard.
+                </Text>
+
+                <View style={styles.heroChipRow}>
+                  <InfoChip label="Email verification" />
+                  <InfoChip label="Permit access" />
+                  <InfoChip label="Schedule tracking" />
+                </View>
+
+                <View style={styles.heroChecklist}>
+                  <ChecklistRow label="Use your real owner name for accurate records" />
+                  <ChecklistRow label="Keep your email active for OTP verification" />
+                  <ChecklistRow label="Phone number must be exactly 11 digits" />
                 </View>
               </View>
 
-              <View style={styles.heroPill}>
-                <MaterialCommunityIcons
-                  name="account-plus-outline"
-                  size={18}
-                  color={agriPalette.white}
-                />
-                <Text style={styles.heroPillText}>Owner onboarding flow</Text>
-              </View>
-
-              <Text style={[styles.heroTitle, isCompact && styles.heroTitleCompact]}>
-                Register once and manage permits, schedules, and QR-ready records
-                from one place.
-              </Text>
-              <Text
+              <View
                 style={[
-                  styles.heroSubtitle,
-                  isCompact && styles.heroSubtitleCompact,
+                  styles.card,
+                  isCompact && styles.cardCompact,
+                  { backgroundColor: colors.surface },
                 ]}
               >
-                Build your livestock owner account with a cleaner mobile-first
-                signup experience, then verify your email to unlock the full
-                dashboard.
-              </Text>
-
-              <View style={styles.heroChipRow}>
-                <InfoChip label="Email verification" />
-                <InfoChip label="Permit access" />
-                <InfoChip label="Schedule tracking" />
-              </View>
-
-              <View style={styles.heroChecklist}>
-                <ChecklistRow label="Use your real owner name for accurate records" />
-                <ChecklistRow label="Keep your email active for OTP verification" />
-                <ChecklistRow label="Phone number must be exactly 11 digits" />
-              </View>
-            </View>
-
-            <View
-              style={[
-                styles.card,
-                isCompact && styles.cardCompact,
-                { backgroundColor: colors.surface },
-              ]}
-            >
-              <Text style={styles.cardEyebrow}>Owner Signup</Text>
-              <Text style={[styles.cardTitle, { color: colors.onSurface }]}>
-                Create your account
-              </Text>
-              <Text style={styles.cardSubtitle}>
-                Enter your personal and contact details. We will send one
-                verification code to your email before you sign in.
-              </Text>
+                <Text style={styles.cardEyebrow}>Owner Signup</Text>
+                <Text style={[styles.cardTitle, { color: colors.onSurface }]}>
+                  Create your account
+                </Text>
+                <Text style={styles.cardSubtitle}>
+                  Enter your personal and contact details. We will send one
+                  verification code to your email before you sign in.
+                </Text>
 
               {notice ? (
                 <FeedbackBanner
@@ -519,21 +544,22 @@ function RegisterScreen() {
                 style={styles.registerButton}
               />
 
-              <View style={styles.loginContainer}>
-                <Text variant="bodyMedium" style={styles.loginText}>
-                  Already have an account?
-                </Text>
-                <TouchableOpacity onPress={() => router.replace("/")}>
-                  <Text variant="bodyMedium" style={styles.loginLink}>
-                    Sign in here
+                <View style={styles.loginContainer}>
+                  <Text variant="bodyMedium" style={styles.loginText}>
+                    Already have an account?
                   </Text>
-                </TouchableOpacity>
+                  <TouchableOpacity onPress={() => router.replace("/")}>
+                    <Text variant="bodyMedium" style={styles.loginLink}>
+                      Sign in here
+                    </Text>
+                  </TouchableOpacity>
+                </View>
               </View>
             </View>
-          </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
-    </LinearGradient>
+          </ScrollView>
+        </KeyboardAvoidingView>
+      </LinearGradient>
+    </>
   );
 }
 
