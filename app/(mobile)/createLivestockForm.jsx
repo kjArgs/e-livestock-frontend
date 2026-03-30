@@ -19,6 +19,13 @@ import {
 import AgriButton from "../../components/AgriButton";
 import DashboardShell from "../../components/DashboardShell";
 import { apiRoutes, apiUrl, parseJsonResponse } from "../../lib/api";
+import {
+  formatAssignedEartagCoding,
+  formatEartagColor,
+  formatEartagShape,
+  getEartagColorSwatch,
+  hasAssignedEartagCoding,
+} from "../../lib/eartagCoding";
 import { agriPalette } from "../../constants/agriTheme";
 
 const DEFAULT_CITY = "Sipocot";
@@ -26,6 +33,7 @@ const DEFAULT_PROVINCE = "Camarines Sur";
 const DEFAULT_DESTINATION = "Sipocot Abattoir Impig Sipocot - Camarines Sur";
 const DEFAULT_PURPOSE = "Slaughter";
 const OWNER_SEARCH_URL = apiUrl(apiRoutes.profile.searchOwners);
+const OWNER_INFO_URL = apiUrl(apiRoutes.profile.info);
 
 const BARANGAYS = [
   "Aldezar",
@@ -298,6 +306,24 @@ function buildSubmissionSuccessNotice(data, options = {}) {
   };
 }
 
+function mergeOwnerAssignment(owner, details = {}) {
+  if (!owner && !details) {
+    return null;
+  }
+
+  return {
+    ...(owner || {}),
+    eartag_shape:
+      details.eartag_shape !== undefined
+        ? details.eartag_shape
+        : owner?.eartag_shape || "",
+    eartag_color:
+      details.eartag_color !== undefined
+        ? details.eartag_color
+        : owner?.eartag_color || "",
+  };
+}
+
 function getSubmissionSuccessAppearance(mode) {
   if (mode === "renewal") {
     return {
@@ -553,6 +579,8 @@ export default function AddLivestockForm() {
                 account_id: Number(request.owner_account_id || 0),
                 full_name: request.owner_name || "",
                 address: request.owner_address || "",
+                eartag_shape: "",
+                eartag_color: "",
               }
             : null
         );
@@ -612,6 +640,64 @@ export default function AddLivestockForm() {
       active = false;
     };
   }, [loadingAccount, renewalRequestId, router]);
+
+  useEffect(() => {
+    if (!selectedOwner?.account_id || selectedOwner?.eartagFetched) {
+      return undefined;
+    }
+
+    let active = true;
+
+    const loadOwnerAssignment = async () => {
+      try {
+        const response = await fetch(OWNER_INFO_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ account_id: selectedOwner.account_id }),
+        });
+
+        const data = await parseJsonResponse(
+          response,
+          "Unable to load the selected owner profile."
+        );
+
+        if (!active || data.status !== "success" || !data.user) {
+          return;
+        }
+
+        setSelectedOwner((current) => {
+          if (!current || current.account_id !== selectedOwner.account_id) {
+            return current;
+          }
+
+          return {
+            ...mergeOwnerAssignment(current, data.user),
+            eartagFetched: true,
+          };
+        });
+      } catch (error) {
+        if (active) {
+          console.error("Owner info error:", error);
+          setSelectedOwner((current) => {
+            if (!current || current.account_id !== selectedOwner.account_id) {
+              return current;
+            }
+
+            return {
+              ...current,
+              eartagFetched: true,
+            };
+          });
+        }
+      }
+    };
+
+    loadOwnerAssignment();
+
+    return () => {
+      active = false;
+    };
+  }, [selectedOwner]);
 
   useEffect(() => {
     if (submitted) {
@@ -676,6 +762,15 @@ export default function AddLivestockForm() {
     batchData.animal_origin_barangay,
     batchData.animal_origin_city,
     batchData.animal_origin_province
+  );
+  const ownerHasAssignedEartag = hasAssignedEartagCoding(selectedOwner);
+  const ownerEartagLabel = formatAssignedEartagCoding(selectedOwner);
+  const ownerEartagShapeLabel = formatEartagShape(selectedOwner?.eartag_shape);
+  const ownerEartagColorLabel = formatEartagColor(selectedOwner?.eartag_color);
+  const loadingOwnerAssignment = Boolean(
+    selectedOwner?.account_id &&
+      !selectedOwner?.eartagFetched &&
+      !ownerHasAssignedEartag
   );
   const reviewedCount = savedAnimals.filter((animal) => animal.dssChecked).length;
   const urgentCount = savedAnimals.filter((animal) => animal.urgent).length;
@@ -853,7 +948,10 @@ export default function AddLivestockForm() {
 
   const onOwnerSelect = (owner) => {
     const parsed = parseAddress(owner.address);
-    setSelectedOwner(owner);
+    setSelectedOwner({
+      ...owner,
+      eartagFetched: true,
+    });
     setOwnerMatches([]);
     setBatchErrors((prev) => {
       let next = removeErrorKey(prev, "owner_name");
@@ -1291,8 +1389,63 @@ export default function AddLivestockForm() {
               >
                 <Text style={styles.rowTitle}>{owner.full_name}</Text>
                 <Text style={styles.helper}>{owner.address || "No address"}</Text>
+                <Text style={styles.helper}>
+                  Ear-tag coding:{" "}
+                  {hasAssignedEartagCoding(owner)
+                    ? formatAssignedEartagCoding(owner)
+                    : "Not assigned yet"}
+                </Text>
               </TouchableOpacity>
             ))}
+          </View>
+        ) : null}
+        {selectedOwner ? (
+          <View style={styles.assignmentCard}>
+            <Text style={styles.assignmentEyebrow}>Assigned ear-tag coding</Text>
+            <Text style={styles.assignmentTitle}>
+              {loadingOwnerAssignment
+                ? "Loading assigned ear-tag coding..."
+                : ownerHasAssignedEartag
+                ? ownerEartagLabel
+                : "No ear-tag coding assigned"}
+            </Text>
+            <Text style={styles.assignmentCopy}>
+              {loadingOwnerAssignment
+                ? "Checking the selected owner profile for any admin-assigned ear-tag coding."
+                : ownerHasAssignedEartag
+                ? "This owner profile already carries an admin-assigned ear-tag combination."
+                : "This owner profile does not have ear-tag coding assigned yet."}
+            </Text>
+
+            {ownerHasAssignedEartag ? (
+              <View style={styles.assignmentChipRow}>
+                <View style={styles.assignmentChip}>
+                  <MaterialCommunityIcons
+                    name="shape-outline"
+                    size={16}
+                    color={agriPalette.fieldDeep}
+                  />
+                  <Text style={styles.assignmentChipText}>
+                    {ownerEartagShapeLabel}
+                  </Text>
+                </View>
+                <View style={styles.assignmentChip}>
+                  <View
+                    style={[
+                      styles.assignmentColorSwatch,
+                      {
+                        backgroundColor: getEartagColorSwatch(
+                          selectedOwner?.eartag_color
+                        ),
+                      },
+                    ]}
+                  />
+                  <Text style={styles.assignmentChipText}>
+                    {ownerEartagColorLabel}
+                  </Text>
+                </View>
+              </View>
+            ) : null}
           </View>
         ) : null}
         <View style={[styles.row, isTablet && styles.rowWide]}>
@@ -1560,6 +1713,13 @@ export default function AddLivestockForm() {
                 updateAnimalDraft("animal_unique_identifier", value)
               }
             />
+            <Text style={styles.helper}>
+              {selectedOwner
+                ? ownerHasAssignedEartag
+                  ? `Assigned coding for this owner: ${ownerEartagLabel}.`
+                  : "No ear-tag coding is assigned to this owner yet."
+                : "Select the owner first if you want to verify the assigned ear-tag coding."}
+            </Text>
             {renderError(animalErrors.animal_unique_identifier)}
           </View>
         </View>
@@ -2460,6 +2620,64 @@ const styles = StyleSheet.create({
     borderColor: agriPalette.border,
     backgroundColor: "#FCF9F1",
     padding: 14,
+  },
+  assignmentCard: {
+    marginTop: 12,
+    marginBottom: 12,
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: "#D8C48A",
+    backgroundColor: "#FFF7E4",
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+  },
+  assignmentEyebrow: {
+    color: "#8A6510",
+    fontSize: 12,
+    fontWeight: "800",
+    textTransform: "uppercase",
+    letterSpacing: 0.9,
+  },
+  assignmentTitle: {
+    marginTop: 8,
+    color: agriPalette.ink,
+    fontSize: 18,
+    fontWeight: "900",
+  },
+  assignmentCopy: {
+    marginTop: 8,
+    color: agriPalette.inkSoft,
+    fontSize: 13,
+    lineHeight: 19,
+  },
+  assignmentChipRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 10,
+    marginTop: 12,
+  },
+  assignmentChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: "#E5D6A9",
+    backgroundColor: agriPalette.surface,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  assignmentChipText: {
+    color: agriPalette.fieldDeep,
+    fontSize: 12,
+    fontWeight: "800",
+  },
+  assignmentColorSwatch: {
+    width: 14,
+    height: 14,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: "rgba(32, 49, 38, 0.12)",
   },
   rowHeader: {
     flexDirection: "row",
