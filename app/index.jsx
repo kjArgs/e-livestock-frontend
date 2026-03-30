@@ -100,8 +100,15 @@ function LoginScreen() {
   const isTallPortrait = height > width && height >= 980;
   const isShortScreen = height < 760;
   const isShortLandscape = isLandscape && height < 560;
-  const useSplitLayout =
+  const useStandardSplitLayout =
     width >= 1180 || (width >= 900 && isLandscape && height >= 560);
+  const useAdaptiveWebSplitLayout =
+    Platform.OS === "web" &&
+    isLandscape &&
+    width >= 760 &&
+    height >= 420;
+  const useSplitLayout =
+    useStandardSplitLayout || useAdaptiveWebSplitLayout;
   const usePortraitMonitorLayout =
     Platform.OS === "web" &&
     !useSplitLayout &&
@@ -111,6 +118,9 @@ function LoginScreen() {
     usePortraitMonitorLayout && width >= 1180;
   const useWideStackedLayout =
     !useSplitLayout && !usePortraitMonitorLayout && isTabletWidth;
+  const useCompactSplitLayout = useSplitLayout && width < 1180;
+  const useNarrowSplitLayout = useSplitLayout && width < 900;
+  const useShortLandscapeStackedLayout = isShortLandscape && !useSplitLayout;
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -127,6 +137,32 @@ function LoginScreen() {
     (useSplitLayout ||
       useCenteredPortraitMonitorLayout ||
       (useWideStackedLayout && !isShortScreen));
+  const pageGap = useSplitLayout
+    ? useNarrowSplitLayout
+      ? 24
+      : useCompactSplitLayout
+        ? 32
+        : 40
+    : usePortraitMonitorLayout
+      ? 24
+      : isShortLandscape
+        ? 20
+        : isCompact
+          ? 24
+          : 30;
+  const pageVerticalPadding = isCompact
+    ? 16
+    : useSplitLayout
+      ? useNarrowSplitLayout
+        ? 18
+        : useCompactSplitLayout
+          ? 24
+          : 30
+      : usePortraitMonitorLayout
+        ? 24
+        : isShortLandscape
+          ? 16
+          : 20;
 
   useEffect(() => {
     setNotice(buildAuthNotice(getParamValue(params.notice)));
@@ -389,47 +425,36 @@ function LoginScreen() {
               },
             ]}
           >
-            <View
-              style={[
-                styles.page,
-                usePortraitMonitorLayout && styles.pagePortraitMonitor,
-                useWideStackedLayout && styles.pageWideStacked,
-                isShortLandscape && styles.pageShortLandscape,
-                {
-                  flexDirection: useSplitLayout ? "row" : "column",
-                  alignItems:
-                    useSplitLayout || usePortraitMonitorLayout
-                      ? "center"
-                      : "stretch",
-                  gap: useSplitLayout
-                    ? 40
-                    : usePortraitMonitorLayout
-                      ? 24
-                      : isShortLandscape
-                        ? 20
-                        : isCompact
-                          ? 24
-                          : 30,
-                  paddingHorizontal: isCompact ? 16 : 20,
-                  paddingVertical: isCompact
-                    ? 16
-                    : useSplitLayout
-                      ? 30
-                      : usePortraitMonitorLayout
-                        ? 24
-                        : isShortLandscape
-                          ? 16
-                          : 20,
-                },
-              ]}
-            >
+              <View
+                style={[
+                  styles.page,
+                  useSplitLayout && styles.pageSplit,
+                  useCompactSplitLayout && styles.pageCompactSplit,
+                  useNarrowSplitLayout && styles.pageNarrowSplit,
+                  usePortraitMonitorLayout && styles.pagePortraitMonitor,
+                  useWideStackedLayout && styles.pageWideStacked,
+                  useShortLandscapeStackedLayout && styles.pageShortLandscape,
+                  {
+                    flexDirection: useSplitLayout ? "row" : "column",
+                    alignItems:
+                      useSplitLayout || usePortraitMonitorLayout
+                        ? "center"
+                        : "stretch",
+                    gap: pageGap,
+                    paddingHorizontal: useNarrowSplitLayout || isCompact ? 16 : 20,
+                    paddingVertical: pageVerticalPadding,
+                  },
+                ]}
+              >
               <View
                 style={[
                   styles.heroColumn,
                   useSplitLayout ? styles.heroColumnWide : styles.heroColumnStacked,
+                  useCompactSplitLayout && styles.heroColumnCompactSplit,
+                  useNarrowSplitLayout && styles.heroColumnNarrowSplit,
                   useWideStackedLayout && styles.heroColumnWideStacked,
                   usePortraitMonitorLayout && styles.heroColumnPortraitMonitor,
-                  isShortLandscape && styles.heroColumnShortLandscape,
+                  useShortLandscapeStackedLayout && styles.heroColumnShortLandscape,
                 ]}
               >
                 <View
@@ -443,8 +468,9 @@ function LoginScreen() {
                     resizeMode="contain"
                     style={[
                       styles.logo,
+                      useNarrowSplitLayout && styles.logoCompact,
                       isCompact && styles.logoCompact,
-                      isShortLandscape && styles.logoShortLandscape,
+                      useShortLandscapeStackedLayout && styles.logoShortLandscape,
                     ]}
                   />
                   <View
@@ -462,12 +488,15 @@ function LoginScreen() {
                       Municipal Agriculture Office
                     </Text>
                     <Text
-                      style={[
-                        styles.logoText,
-                        isCompact && styles.logoTextCompact,
-                        isShortLandscape && styles.logoTextShortLandscape,
-                        usePortraitMonitorLayout && styles.centeredHeroText,
-                      ]}
+                    style={[
+                      styles.logoText,
+                      useCompactSplitLayout && styles.logoTextCompactSplit,
+                      useNarrowSplitLayout && styles.logoTextCompact,
+                      isCompact && styles.logoTextCompact,
+                      useShortLandscapeStackedLayout &&
+                        styles.logoTextShortLandscape,
+                      usePortraitMonitorLayout && styles.centeredHeroText,
+                    ]}
                   >
                       e-Livestock services for Sipocot
                     </Text>
@@ -477,8 +506,10 @@ function LoginScreen() {
                 <View
                   style={[
                     styles.heroPill,
+                    useCompactSplitLayout && styles.heroPillCompactSplit,
                     usePortraitMonitorLayout && styles.heroPillCentered,
-                    isShortLandscape && styles.heroPillShortLandscape,
+                    useShortLandscapeStackedLayout &&
+                      styles.heroPillShortLandscape,
                   ]}
                 >
                   <MaterialCommunityIcons
@@ -494,8 +525,11 @@ function LoginScreen() {
                 <Text
                   style={[
                     styles.heroTitle,
+                    useCompactSplitLayout && styles.heroTitleCompactSplit,
+                    useNarrowSplitLayout && styles.heroTitleNarrowSplit,
                     isCompact && styles.heroTitleCompact,
-                    isShortLandscape && styles.heroTitleShortLandscape,
+                    useShortLandscapeStackedLayout &&
+                      styles.heroTitleShortLandscape,
                     usePortraitMonitorLayout && styles.centeredHeroText,
                   ]}
                 >
@@ -504,8 +538,11 @@ function LoginScreen() {
                 <Text
                   style={[
                     styles.heroSubtitle,
+                    useCompactSplitLayout && styles.heroSubtitleCompactSplit,
+                    useNarrowSplitLayout && styles.heroSubtitleNarrowSplit,
                     isCompact && styles.heroSubtitleCompact,
-                    isShortLandscape && styles.heroSubtitleShortLandscape,
+                    useShortLandscapeStackedLayout &&
+                      styles.heroSubtitleShortLandscape,
                     usePortraitMonitorLayout && styles.centeredHeroText,
                   ]}
                 >
@@ -516,8 +553,10 @@ function LoginScreen() {
                 <View
                   style={[
                     styles.heroChipRow,
+                    useCompactSplitLayout && styles.heroChipRowCompactSplit,
                     usePortraitMonitorLayout && styles.heroChipRowCentered,
-                    isShortLandscape && styles.heroChipRowShortLandscape,
+                    useShortLandscapeStackedLayout &&
+                      styles.heroChipRowShortLandscape,
                   ]}
                 >
                   <InfoChip label="Permit tracking" />
@@ -529,11 +568,13 @@ function LoginScreen() {
               <View
                 style={[
                   styles.card,
+                  useCompactSplitLayout && styles.cardCompactSplit,
+                  useNarrowSplitLayout && styles.cardNarrowSplit,
                   isCompact && styles.cardCompact,
                   !useSplitLayout && styles.cardStacked,
                   useWideStackedLayout && styles.cardWideStacked,
                   usePortraitMonitorLayout && styles.cardPortraitMonitor,
-                  isShortLandscape && styles.cardShortLandscape,
+                  useShortLandscapeStackedLayout && styles.cardShortLandscape,
                   { backgroundColor: colors.surface },
                 ]}
               >
@@ -676,6 +717,15 @@ const styles = StyleSheet.create({
     alignSelf: "center",
     justifyContent: "center",
   },
+  pageSplit: {
+    alignItems: "center",
+  },
+  pageCompactSplit: {
+    maxWidth: 980,
+  },
+  pageNarrowSplit: {
+    maxWidth: 820,
+  },
   pagePortraitMonitor: {
     maxWidth: 860,
   },
@@ -694,6 +744,13 @@ const styles = StyleSheet.create({
     flex: 1,
     minWidth: 0,
     paddingRight: 12,
+  },
+  heroColumnCompactSplit: {
+    maxWidth: 500,
+  },
+  heroColumnNarrowSplit: {
+    maxWidth: 360,
+    paddingRight: 0,
   },
   heroColumnStacked: {
     alignSelf: "center",
@@ -765,6 +822,10 @@ const styles = StyleSheet.create({
     fontSize: 24,
     lineHeight: 30,
   },
+  logoTextCompactSplit: {
+    fontSize: 25,
+    lineHeight: 31,
+  },
   logoTextShortLandscape: {
     fontSize: 25,
     lineHeight: 30,
@@ -782,6 +843,10 @@ const styles = StyleSheet.create({
   },
   heroPillCentered: {
     alignSelf: "center",
+  },
+  heroPillCompactSplit: {
+    marginTop: 18,
+    marginBottom: 16,
   },
   heroPillShortLandscape: {
     marginTop: 16,
@@ -804,6 +869,16 @@ const styles = StyleSheet.create({
     fontSize: 28,
     lineHeight: 34,
   },
+  heroTitleCompactSplit: {
+    fontSize: 34,
+    lineHeight: 40,
+    maxWidth: 500,
+  },
+  heroTitleNarrowSplit: {
+    fontSize: 28,
+    lineHeight: 34,
+    maxWidth: 360,
+  },
   heroTitleShortLandscape: {
     fontSize: 32,
     lineHeight: 38,
@@ -819,6 +894,18 @@ const styles = StyleSheet.create({
     fontSize: 15,
     lineHeight: 22,
   },
+  heroSubtitleCompactSplit: {
+    marginTop: 12,
+    fontSize: 15,
+    lineHeight: 22,
+    maxWidth: 460,
+  },
+  heroSubtitleNarrowSplit: {
+    marginTop: 12,
+    fontSize: 14,
+    lineHeight: 21,
+    maxWidth: 360,
+  },
   heroSubtitleShortLandscape: {
     marginTop: 12,
     fontSize: 15,
@@ -832,6 +919,10 @@ const styles = StyleSheet.create({
   },
   heroChipRowCentered: {
     justifyContent: "center",
+  },
+  heroChipRowCompactSplit: {
+    marginTop: 18,
+    gap: 8,
   },
   heroChipRowShortLandscape: {
     marginTop: 18,
@@ -872,6 +963,17 @@ const styles = StyleSheet.create({
     }),
   },
   cardCompact: {
+    borderRadius: 26,
+    paddingHorizontal: 18,
+    paddingVertical: 20,
+  },
+  cardCompactSplit: {
+    maxWidth: 400,
+    paddingHorizontal: 20,
+    paddingVertical: 22,
+  },
+  cardNarrowSplit: {
+    maxWidth: 360,
     borderRadius: 26,
     paddingHorizontal: 18,
     paddingVertical: 20,
