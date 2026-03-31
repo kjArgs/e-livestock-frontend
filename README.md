@@ -1,50 +1,132 @@
-# Welcome to your Expo app 👋
+# E-Livestock Frontend
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+Expo Router frontend for the E-Livestock system. This app contains the mobile and web client flows for livestock owners, inspectors, and antemortem schedule handling.
 
-## Get started
+## Stack
 
-1. Install dependencies
+- Expo SDK 54
+- Expo Router
+- React 19
+- React Native 0.81
+- Static web export for web deployment
+
+## Main App Areas
+
+- Owner flows: registration, login, appointments, renewals, forms, notifications
+- Inspector flows: dashboard, livestock form creation, inspection summaries
+- Antemortem flows: schedule board, QR verification, schedule status updates
+- Shared UI: dashboard shells, alerts, reusable form and feedback components
+
+## Project Structure
+
+```text
+app/                 File-based routes and screens
+app/(mobile)/        Mobile-focused user flows
+components/          Shared UI components
+lib/api/             API URL builder and route map
+lib/notifications/   Device notification helpers
+public/              Web static assets and PWA files
+scripts/             Utility scripts such as SEO asset generation
+```
+
+## Prerequisites
+
+- Node.js 18 or newer
+- npm
+- Expo tooling through the project scripts
+- Android Studio, an emulator, or Expo Go if you want to run on Android
+
+## Environment Setup
+
+1. Install dependencies:
 
    ```bash
    npm install
    ```
 
-2. Start the app
+2. Create a local environment file from the example:
 
    ```bash
-   npx expo start
+   Copy-Item .env.example .env
    ```
 
-In the output, you'll find options to open the app in a
+3. Update the values in `.env`:
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+- `EXPO_PUBLIC_API_BASE_URL`
+  Base URL of the backend API. Example: `http://localhost/e-livestock-backend/API`
+- `EXPO_PUBLIC_API_ROUTE_MODE`
+  Use `legacy` for the current PHP-style endpoints such as `auth/logIn.php`, or `clean` if the backend is serving rewritten clean routes
+- `EXPO_PUBLIC_SITE_URL`
+  Public website URL used by the web/SEO assets
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+If `.env` is missing, the app falls back to the production API configured in [`lib/api/client.js`](./lib/api/client.js).
 
-## Get a fresh project
+## Local Development Procedure
 
-When you're ready, run:
+1. Start the Expo dev server:
 
-```bash
-npm run reset-project
-```
+   ```bash
+   npm run start
+   ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+2. Choose how to open the app:
 
-## Learn more
+- Android: `npm run android`
+- Web: `npm run web`
+- Expo developer menu: use the options shown by `expo start`
 
-To learn more about developing your project with Expo, look at the following resources:
+3. Edit screens inside [`app/`](./app) and shared components inside [`components/`](./components).
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+## Available Scripts
 
-## Join the community
+- `npm run start` starts the Expo development server
+- `npm run android` builds and launches the Android app locally
+- `npm run ios` runs the iOS native target on macOS environments
+- `npm run web` starts the app in web mode
+- `npm run lint` runs Expo linting
+- `npm run seo:generate` regenerates sitemap and related SEO assets
+- `npm run build:web` generates SEO assets and exports the static web build
+- `npm run reset-project` runs the Expo starter reset script
 
-Join our community of developers creating universal apps.
+## API Routing Notes
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+The API path definitions live in [`lib/api/routes.js`](./lib/api/routes.js). Each route includes:
+
+- a `legacy` path for PHP endpoints
+- a `clean` path for route-rewritten endpoints
+
+The selected mode is controlled by `EXPO_PUBLIC_API_ROUTE_MODE`.
+
+## Web Build Procedure
+
+1. Confirm your `.env` values are correct for the target environment.
+2. Run:
+
+   ```bash
+   npm run build:web
+   ```
+
+3. Deploy the generated static output from `dist/`.
+
+## Generated Files And Git Procedure
+
+`expo-env.d.ts` is auto-generated by Expo because `typedRoutes` is enabled in [`app.json`](./app.json). It should stay local and should not be edited manually.
+
+Important Git behavior:
+
+- `.gitignore` only ignores untracked files
+- if `expo-env.d.ts` was committed before, Git will keep tracking it
+- to stop tracking it while keeping the local file, run:
+
+  ```bash
+  git rm --cached expo-env.d.ts
+  ```
+
+After that, the ignore rule in [`.gitignore`](./.gitignore) will apply normally.
+
+## Documentation Maintenance Procedure
+
+- Update this README when scripts, environment variables, or setup steps change
+- Keep `.env.example` aligned with the variables actually used in the app
+- Document new API routes in [`lib/api/routes.js`](./lib/api/routes.js)
+- Note generated files and whether they belong in source control before committing them
