@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "elivestock-application",
-    "slug": "elivestock-application",
+    "name": "elivestock-Sipocot",
+    "slug": "elivestock-Sipocot",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -62,8 +62,9 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "c1fc60ba-176b-415a-8c55-afbf7698f44a"
+        "projectId": "b7826299-343b-4fac-8c7d-6e98b7e1e5f7"
       }
-    }
+    },
+    "owner": "kristan"
   }
 }

@@ -4,34 +4,34 @@ import { LinearGradient } from "expo-linear-gradient";
 import { Redirect, useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import {
-  Image,
-  Keyboard,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  TouchableOpacity,
-  useWindowDimensions,
-  View,
+    Image,
+    Keyboard,
+    KeyboardAvoidingView,
+    Platform,
+    ScrollView,
+    StyleSheet,
+    TouchableOpacity,
+    useWindowDimensions,
+    View,
 } from "react-native";
 import {
-  Provider as PaperProvider,
-  Text,
-  TextInput,
-  useTheme,
+    Provider as PaperProvider,
+    Text,
+    TextInput,
+    useTheme,
 } from "react-native-paper";
 import AgriButton from "../components/AgriButton";
 import FeedbackBanner from "../components/FeedbackBanner";
 import SeoHead from "../components/SeoHead";
 import StartupLoadingOverlay from "../components/StartupLoadingOverlay";
 import { agriPalette, agriPaperTheme } from "../constants/agriTheme";
-import {
-  SITE_DESCRIPTION,
-  SITE_NAME,
-  getBreadcrumbSchema,
-  getWebPageSchema,
-} from "../lib/seo";
 import { apiRoutes, apiUrl } from "../lib/api";
+import {
+    getBreadcrumbSchema,
+    getWebPageSchema,
+    SITE_DESCRIPTION,
+    SITE_NAME,
+} from "../lib/seo";
 
 const API_URL = apiUrl(apiRoutes.auth.login);
 
@@ -121,7 +121,7 @@ function LoginScreen() {
   const useCompactSplitLayout = useSplitLayout && width < 1180;
   const useNarrowSplitLayout = useSplitLayout && width < 900;
   const useShortLandscapeStackedLayout = isShortLandscape && !useSplitLayout;
-  const [username, setUsername] = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [secureText, setSecureText] = useState(true);
@@ -260,11 +260,11 @@ function LoginScreen() {
   };
 
   const handleLogin = async () => {
-    if (!username || !password) {
+    if (!email || !password) {
       setNotice({
         tone: "error",
         title: "Missing credentials",
-        message: "Please enter both username and password before signing in.",
+        message: "Please enter both email and password before signing in.",
       });
       return;
     }
@@ -279,7 +279,7 @@ function LoginScreen() {
       const response = await fetch(API_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, password }),
+        body: JSON.stringify({ email, password }),
       });
 
       const text = await response.text();
@@ -598,13 +598,15 @@ function LoginScreen() {
                 ) : null}
 
                 <TextInput
-                  label="Username"
+                  label="Email"
                   mode="outlined"
-                  value={username}
-                  onChangeText={setUsername}
+                  value={email}
+                  onChangeText={setEmail}
                   onFocus={() => focusFormField(290)}
                   style={styles.input}
-                  left={<TextInput.Icon icon="account" />}
+                  left={<TextInput.Icon icon="email" />}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
                   outlineColor={colors.outline}
                   activeOutlineColor={colors.primary}
                 />
